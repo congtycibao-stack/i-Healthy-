@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSE CiBao - Nhập Nhân Viên (Turbo V4)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        .badge-bnn { background-color: #dc3545; color: white; font-size: 0.8em; }
+        .badge-safe { background-color: #198754; color: white; font-size: 0.8em; }
+        .table-xs td { font-size: 0.85rem; vertical-align: middle; }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <h3 class="text-center text-primary fw-bold mb-4"><i class="bi bi-rocket-takeoff-fill"></i> NHẬP NHÂN VIÊN (TỐC ĐỘ CAO)</h3>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded border">
+                    <div>
+                        <i class="bi bi-info-circle-fill text-info"></i> 
+                        <strong>Lưu ý:</strong> Hỗ trợ file lớn (hàng chục ngàn dòng). Tự động dịch F/M và sửa ngày tháng.
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="taiFileMau()">
+                        <i class="bi bi-download"></i> Tải File Mẫu
+                    </button>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="fw-bold">Chọn file Excel nhân sự:</label>
+                        <input type="file" id="fileInput" class="form-control" accept=".xlsx, .xls, .csv">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="phanTichDuLieu()">
+                            <i class="bi bi-magic"></i> Phân tích
+                        </button>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-success w-100" id="btnLuu" onclick="luuVaoHeThong()" disabled>
+                            <i class="bi bi-cloud-upload"></i> Lưu Dữ Liệu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <strong>Kết quả Phân tích (<span id="countDisplay">0</span>)</strong>
+                <small class="text-muted fst-italic">Chế độ Turbo: Gửi 2000 dòng/lần</small>
+            </div>
+            <div class="table-responsive" style="max-height: 500px;">
+                <table class="table table-bordered table-hover table-xs mb-0">
+                    <thead class="table-light text-center sticky-top">
+                        <tr>
+                            <th>Mã NV</th>
+                            <th>Họ Tên</th>
+                            <th>Giới Tính</th>
+                            <th>Công Đoạn</th>
+                            <th>Phân Loại</th>
+                            <th>Ngày Vào</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CẤU HÌNH SUPABASE ---
+        const projectUrl = 'https://eoebiveebosvlyndbdak.supabase.co';
+        const projectKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvZWJpdmVlYm9zdmx5bmRiZGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NjI4NjEsImV4cCI6MjA4MzMzODg2MX0.dF5-AmjWlxtJSD2QWHFpiWpHE8l6cHuG_pLxkXD-TUc';
+        const supabaseClient = window.supabase.createClient(projectUrl, projectKey);
+
+        let dataReadyToSave = [];
+        let mapCongDoan = {};
+        let mapCauHinh = {};
+
+        // --- KHỞI ĐỘNG ---
+        async function loadMasterData() {
+            try {
+                // Tải dữ liệu song song (Promise.all) cho nhanh
+                const [resCD, resCH] = await Promise.all([
+                    supabaseClient.from('danh_muc_cong_doan').select('*'),
+                    supabaseClient.from('cau_hinh_kham').select('*')
+                ]);
+
+                if(resCD.data) resCD.data.forEach(x => mapCongDoan[x.ma_cong_doan] = x);
+                if(resCH.data) resCH.data.forEach(x => mapCauHinh[x.ma_cong_doan] = x);
+                console.log("Đã tải xong Master Data");
+            } catch(e) { console.error(e); }
+        }
+        loadMasterData();
+
+        function taiFileMau() {
+            if (typeof XLSX === 'undefined') return Swal.fire('Lỗi Mạng', 'F5 lại trang để tải thư viện Excel.', 'error');
+            const headers = ["Mã NV", "Họ Tên", "Năm Sinh", "Giới Tính", "Mã Đơn Vị", "Mã Chức Vụ", "Mã Công Đoạn", "Ngày Vào Làm", "Ngày Chuyển Đổi"];
+            const sample = [["CB001", "Nguyễn Văn A", 1990, "N", "GE3", "C04", "A62", "12/31/2020", ""], ["CB002", "Lê Thị B", 1995, "F", "A10", "B10", "Z01", "06/15/2022", ""]];
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "NhanVien");
+            XLSX.writeFile(wb, "Mau_NhanSu_Moi.xlsx");
+        }
+
+        // --- HÀM PHÂN TÍCH (GIỮ NGUYÊN LOGIC THÔNG MINH) ---
+        function phanTichDuLieu() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return Swal.fire('Lỗi', 'Chưa chọn file!', 'error');
+
+            Swal.fire({title: 'Đang đọc file...', didOpen: ()=>Swal.showLoading()});
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const workbook = XLSX.read(e.target.result, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
+
+                dataReadyToSave = [];
+                // Sử dụng DocumentFragment để render bảng nhanh hơn (tránh lag trình duyệt)
+                const fragment = document.createDocumentFragment(); 
+
+                // Giới hạn hiển thị preview 500 dòng đầu để tránh treo máy nếu file quá lớn
+                const PREVIEW_LIMIT = 500; 
+
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || !row[0]) continue;
+
+                    const maNV = row[0].toString().trim();
+                    const hoTen = row[1];
+                    const namSinh = row[2];
+                    
+                    const rawGT = row[3] ? row[3].toString().trim().toUpperCase() : '';
+                    let gioiTinh = rawGT;
+                    if(rawGT === 'F' || rawGT === 'FEMALE' || rawGT === 'NU') gioiTinh = 'Nữ';
+                    else if(rawGT === 'N' || rawGT === 'M' || rawGT === 'MALE' || rawGT === 'NAM') gioiTinh = 'Nam';
+
+                    const maDonVi = row[4] ? row[4].toString().trim() : '';
+                    const maChucVu = row[5] ? row[5].toString().trim() : '';
+                    const maCongDoan = row[6] ? row[6].toString().trim() : '';
+                    
+                    const ngayVao = chuanHoaNgayThang(row[7]);
+                    const ngayChuyen = chuanHoaNgayThang(row[8]);
+
+                    let isDocHai = false;
+                    if (mapCongDoan[maCongDoan]) isDocHai = mapCongDoan[maCongDoan].co_doc_hai; 
+
+                    let tanSuat = "1 lần/năm";
+                    let chiDinhBNN = {};
+                    if (mapCauHinh[maCongDoan]) {
+                        tanSuat = mapCauHinh[maCongDoan].tan_suat_kham || "1 lần/năm";
+                        chiDinhBNN = mapCauHinh[maCongDoan].chi_dinh_bnn || {};
+                    }
+                    
+                    const item = {
+                        ma_nv: maNV, ho_ten: hoTen, nam_sinh: namSinh, gioi_tinh: gioiTinh,
+                        ma_don_vi: maDonVi, ma_chuc_vu: maChucVu, ma_cong_doan: maCongDoan,
+                        ngay_vao_lam: ngayVao, ngay_chuyen_doi: ngayChuyen
+                    };
+                    dataReadyToSave.push(item);
+
+                    // Chỉ render 500 dòng đầu để preview
+                    if (i <= PREVIEW_LIMIT) {
+                        let labelPhanLoai = isDocHai ? '<span class="badge badge-bnn">Độc hại</span>' : '<span class="badge badge-safe">Bình thường</span>';
+                        let tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${maNV}</td><td>${hoTen}</td><td class="fw-bold text-primary">${gioiTinh}</td>
+                            <td>${maCongDoan}</td><td>${labelPhanLoai}</td>
+                            <td>${item.ngay_vao_lam || '<span class="text-muted">-</span>'}</td>
+                        `;
+                        fragment.appendChild(tr);
+                    }
+                }
+
+                document.getElementById('tableBody').innerHTML = '';
+                document.getElementById('tableBody').appendChild(fragment);
+
+                let msg = `Đã xử lý ${dataReadyToSave.length} nhân viên.`;
+                if(dataReadyToSave.length > PREVIEW_LIMIT) msg += ` (Chỉ hiển thị ${PREVIEW_LIMIT} dòng đầu để xem trước).`;
+                
+                document.getElementById('countDisplay').innerText = dataReadyToSave.length;
+                document.getElementById('btnLuu').disabled = false;
+                Swal.fire('Thành công', msg, 'success');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- HÀM LƯU TỐC ĐỘ CAO (TURBO MODE) ---
+        async function luuVaoHeThong() {
+            if(dataReadyToSave.length === 0) return;
+
+            Swal.fire({
+                title: 'Đang tải lên siêu tốc...',
+                html: 'Vui lòng không tắt trình duyệt...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            // Tăng batch size lên 2000
+            const BATCH_SIZE = 2000;
+            const chunks = [];
+            
+            // Chia nhỏ dữ liệu thành các gói lớn
+            for (let i = 0; i < dataReadyToSave.length; i += BATCH_SIZE) {
+                chunks.push(dataReadyToSave.slice(i, i + BATCH_SIZE));
+            }
+
+            let totalSuccess = 0;
+            let totalError = 0;
+
+            // Xử lý song song từng gói (Promise.all)
+            // Lưu ý: upsert của Supabase rất mạnh, có thể nuốt trọn 2000 dòng trong 1 tích tắc
+            const promises = chunks.map(async (batch, index) => {
+                const { error } = await supabaseClient.from('nhan_vien').upsert(batch, { onConflict: 'ma_nv' });
+                if (error) {
+                    console.error(`Lỗi gói ${index}:`, error);
+                    totalError += batch.length;
+                } else {
+                    totalSuccess += batch.length;
+                }
+            });
+
+            // Đợi tất cả các chuyến xe về đích
+            await Promise.all(promises);
+
+            if(totalError > 0) {
+                Swal.fire('Hoàn tất (Có lỗi)', `Thành công: ${totalSuccess}, Lỗi: ${totalError}. Xem Console F12 để biết chi tiết.`, 'warning');
+            } else {
+                Swal.fire('Thành công Tuyệt đối', `Đã cập nhật xong ${totalSuccess} nhân viên chỉ trong tích tắc!`, 'success');
+            }
+        }
+
+        function chuanHoaNgayThang(input) {
+            if (!input) return null;
+            if (typeof input === 'number') {
+                const date = new Date(Math.round((input - 25569) * 86400 * 1000));
+                return date.toISOString().split('T')[0];
+            }
+            if (typeof input === 'string') {
+                input = input.trim();
+                if (input.includes('/')) {
+                    const parts = input.split('/');
+                    if (parts.length === 3) {
+                        let mm = parts[0].padStart(2, '0');
+                        let dd = parts[1].padStart(2, '0');
+                        let yyyy = parts[2];
+                        return `${yyyy}-${mm}-${dd}`;
+                    }
+                }
+                if (input.includes('-')) return input;
+            }
+            return null;
+        }
+    </script>
+</body>
+</html>

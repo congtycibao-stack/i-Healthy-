@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSE Dashboard - Theo dõi KSK</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #f0f2f5; font-family: sans-serif; }
+        .card-box { border: none; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .badge-pending { background-color: #fff3cd; color: #856404; padding: 8px 12px; border-radius: 20px; }
+        .badge-done { background-color: #d1e7dd; color: #0f5132; padding: 8px 12px; border-radius: 20px; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark bg-primary mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">TRUNG TÂM THEO DÕI KSK - CI BAO</span>
+            <span class="text-white" id="tenDotKham">Đang tải...</span>
+        </div>
+    </nav>
+
+    <div class="container">
+        
+        <div class="card card-box mb-4 p-4 bg-white">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Lọc theo Bộ phận:</label>
+                    <select id="selectBoPhan" class="form-select" onchange="taiDuLieuTable()">
+                        <option value="ALL">-- Tất cả bộ phận --</option>
+                        </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Trạng thái:</label>
+                    <select id="selectTrangThai" class="form-select" onchange="taiDuLieuTable()">
+                        <option value="ALL">Tất cả</option>
+                        <option value="false" selected>Chưa khám (Cần hối thúc)</option>
+                        <option value="true">Đã khám xong</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-success btn-lg" onclick="xuatExcel()">
+                        <i class="bi bi-file-excel"></i> Xuất Excel Hối Thúc
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-box bg-white">
+            <div class="card-header bg-white fw-bold d-flex justify-content-between">
+                <span>DANH SÁCH NHÂN VIÊN</span>
+                <span class="badge bg-secondary" id="countDisplay">0 người</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã NV</th>
+                            <th>Họ Tên</th>
+                            <th>Bộ Phận</th>
+                            <th>Giới Tính</th>
+                            <th>Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CẤU HÌNH SUPABASE ---
+        const projectUrl = 'https://eoebiveebosvlyndbdak.supabase.co';
+        const projectKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvZWJpdmVlYm9zdmx5bmRiZGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NjI4NjEsImV4cCI6MjA4MzMzODg2MX0.dF5-AmjWlxtJSD2QWHFpiWpHE8l6cHuG_pLxkXD-TUc';
+        const supabaseClient = window.supabase.createClient(projectUrl, projectKey);
+
+        let dotKhamHienTaiID = null;
+        let duLieuHienTai = []; // Lưu dữ liệu để xuất Excel
+
+        // --- KHỞI ĐỘNG ---
+        async function khoiDong() {
+            // 1. Lấy đợt khám mới nhất
+            const { data: dotKham } = await supabaseClient
+                .from('dot_kham').select('*').order('id', { ascending: false }).limit(1).single();
+
+            if (dotKham) {
+                dotKhamHienTaiID = dotKham.id;
+                document.getElementById('tenDotKham').innerText = dotKham.ten_dot;
+                
+                // 2. Lấy danh sách các Bộ phận để điền vào ô chọn
+                layDanhSachBoPhan();
+                
+                // 3. Tải bảng dữ liệu
+                taiDuLieuTable();
+            }
+        }
+
+        // --- LẤY DANH SÁCH BỘ PHẬN (Distinct) ---
+        async function layDanhSachBoPhan() {
+            const { data } = await supabaseClient.from('nhan_vien').select('bo_phan');
+            // Lọc trùng lặp bằng Set
+            const boPhanDuyNhat = [...new Set(data.map(item => item.bo_phan))];
+            
+            const select = document.getElementById('selectBoPhan');
+            boPhanDuyNhat.forEach(bp => {
+                if(bp) {
+                    const option = document.createElement('option');
+                    option.value = bp;
+                    option.text = bp;
+                    select.add(option);
+                }
+            });
+        }
+
+        // --- TẢI DỮ LIỆU BẢNG ---
+        async function taiDuLieuTable() {
+            const boPhan = document.getElementById('selectBoPhan').value;
+            const trangThai = document.getElementById('selectTrangThai').value;
+
+            // Query cơ bản
+            let query = supabaseClient
+                .from('ho_so_kham')
+                .select('*, nhan_vien(ho_ten, bo_phan, gioi_tinh)')
+                .eq('dot_kham_id', dotKhamHienTaiID);
+
+            // Áp dụng bộ lọc
+            if (trangThai !== 'ALL') {
+                query = query.eq('trang_thai_checkin', trangThai === 'true');
+            }
+            // (Lưu ý: Lọc bộ phận phải lọc sau khi lấy dữ liệu về hoặc dùng inner join phức tạp, 
+            // ở đây mình lấy về rồi lọc JS cho đơn giản với quy mô nhỏ)
+            
+            const { data, error } = await query;
+            
+            if (error) { alert('Lỗi tải dữ liệu'); return; }
+
+            // Lọc bộ phận bằng JS
+            let ketQuaLoc = data;
+            if (boPhan !== 'ALL') {
+                ketQuaLoc = data.filter(item => item.nhan_vien.bo_phan === boPhan);
+            }
+
+            duLieuHienTai = ketQuaLoc; // Lưu biến toàn cục để dành xuất Excel
+            hienThiBang(ketQuaLoc);
+        }
+
+        function hienThiBang(list) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            document.getElementById('countDisplay').innerText = `${list.length} người`;
+
+            list.forEach(item => {
+                const badge = item.trang_thai_checkin 
+                    ? '<span class="badge-done">Đã khám</span>' 
+                    : '<span class="badge-pending">Chưa khám</span>';
+
+                const row = `
+                    <tr>
+                        <td><strong>${item.ma_nv}</strong></td>
+                        <td>${item.nhan_vien.ho_ten}</td>
+                        <td>${item.nhan_vien.bo_phan}</td>
+                        <td>${item.nhan_vien.gioi_tinh}</td>
+                        <td>${badge}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // --- XUẤT EXCEL (TÍNH NĂNG ĂN TIỀN) ---
+        function xuatExcel() {
+            if (duLieuHienTai.length === 0) {
+                alert("Không có dữ liệu để xuất!");
+                return;
+            }
+
+            // 1. Chế biến dữ liệu cho đẹp
+            const duLieuXuat = duLieuHienTai.map(item => ({
+                "Mã NV": item.ma_nv,
+                "Họ Tên": item.nhan_vien.ho_ten,
+                "Bộ Phận": item.nhan_vien.bo_phan,
+                "Trạng Thái": item.trang_thai_checkin ? "Đã khám" : "CHƯA KHÁM"
+            }));
+
+            // 2. Tạo Sheet
+            const worksheet = XLSX.utils.json_to_sheet(duLieuXuat);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSach");
+
+            // 3. Tải xuống
+            const trangThaiText = document.getElementById('selectTrangThai').options[document.getElementById('selectTrangThai').selectedIndex].text;
+            XLSX.writeFile(workbook, `DanhSach_${trangThaiText}_CiBao.xlsx`);
+        }
+
+        khoiDong();
+    </script>
+</body>
+</html>

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Đợt Khám - HSE CiBao</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        /* CSS Giao diện cũ */
+        .stat-card { border-left: 5px solid #ddd; transition: 0.3s; cursor: pointer; background: white; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .border-total { border-left-color: #0d6efd; }
+        .border-toxic { border-left-color: #dc3545; }
+        .border-bnn { border-left-color: #ffc107; }
+        .border-normal { border-left-color: #198754; }
+        .border-missing { border-left-color: #6c757d; }
+        
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; text-align: center; padding-top: 15%; color: white; }
+        
+        /* CSS Mới cho Tài Chính */
+        .money-input { font-weight: bold; color: #198754; text-align: right; letter-spacing: 1px; }
+        .money-input:focus { background-color: #f0fff4; border-color: #198754; box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25); }
+        .total-cell { font-weight: bold; color: #dc3545; text-align: right; font-size: 1.1rem; }
+        .grand-total-box { background: linear-gradient(45deg, #0d6efd, #0dcaf0); color: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .currency-switch { cursor: pointer; user-select: none; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <h3 class="fw-bold mb-3 text-warning"><i class="bi bi-database-fill-gear bi-spin"></i> ĐANG XỬ LÝ...</h3>
+        <p class="fs-5">Vui lòng đợi: <span id="lblProgress" class="fw-bold text-info">...</span></p>
+    </div>
+
+    <div class="container py-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-primary fw-bold"><i class="bi bi-calendar-check"></i> QUẢN LÝ ĐỢT KHÁM</h2>
+            <a href="index.html" class="btn btn-outline-secondary"><i class="bi bi-house"></i> Trang Chủ</a>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-primary text-white fw-bold"><i class="bi bi-plus-circle"></i> TẠO ĐỢT KHÁM</div>
+                    <div class="card-body">
+                        <label class="fw-bold mb-1">Tên đợt khám:</label>
+                        <input type="text" id="txtTenDot" class="form-control mb-3" placeholder="Vd: KSK 2026">
+                        <label class="fw-bold mb-1">Ngày bắt đầu:</label>
+                        <input type="date" id="txtNgay" class="form-control mb-3">
+                        <button class="btn btn-primary w-100" onclick="taoDotKham()">Lưu Đợt Khám</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white fw-bold"><i class="bi bi-list-ul"></i> DANH SÁCH</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light"><tr><th>Tên Đợt</th><th>Số Lượng</th><th>Thao Tác</th><th width="50">Xóa</th></tr></thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCost" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calculator"></i> DỰ TOÁN CHI PHÍ & HỢP ĐỒNG</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-3 rounded shadow-sm border">
+                        <div class="d-flex align-items-center gap-3">
+                            <label class="fw-bold">Loại tiền:</label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="currency" id="currVND" autocomplete="off" checked onclick="switchCurrency('VND')">
+                                <label class="btn btn-outline-success" for="currVND">🇻🇳 VND</label>
+                                
+                                <input type="radio" class="btn-check" name="currency" id="currUSD" autocomplete="off" onclick="switchCurrency('USD')">
+                                <label class="btn btn-outline-primary" for="currUSD">🇺🇸 USD</label>
+                            </div>
+                        </div>
+                        <div id="exchangeRateBox" style="display: none;" class="d-flex align-items-center gap-2">
+                            <label class="fw-bold text-primary">Tỷ giá (1 USD = ? VND):</label>
+                            <input type="text" id="txtTyGia" class="form-control money-input" style="width: 150px;" value="25,400" onkeyup="formatCurrency(this); tinhTien()">
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm border-0 mb-3">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0 align-middle">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th>Hạng mục khám</th>
+                                        <th class="text-center">Số lượng</th>
+                                        <th class="text-end" style="width: 200px;">Đơn Giá <span id="lblUnit"></span></th>
+                                        <th class="text-end">Thành Tiền <span id="lblUnitTotal"></span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-primary">1. Khám Định Kỳ (Bình thường)</div>
+                                            <small class="text-muted">Nhân viên văn phòng, kho nhẹ...</small>
+                                        </td>
+                                        <td class="text-center fw-bold fs-5" id="qtyDinhKy">0</td>
+                                        <td><input type="text" id="priceDinhKy" class="form-control money-input" placeholder="0" onkeyup="formatCurrency(this); tinhTien()"></td>
+                                        <td class="total-cell" id="totalDinhKy">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-danger">2. Khám Nặng nhọc / Độc hại</div>
+                                            <small class="text-muted">Công đoạn Y, Z... (Gói khám cao hơn)</small>
+                                        </td>
+                                        <td class="text-center fw-bold fs-5" id="qtyDocHai">0</td>
+                                        <td><input type="text" id="priceDocHai" class="form-control money-input" placeholder="0" onkeyup="formatCurrency(this); tinhTien()"></td>
+                                        <td class="total-cell" id="totalDocHai">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-warning text-dark">3. Đo Quan trắc BNN</div>
+                                            <small class="text-muted">Đo thính lực, hô hấp (Tính theo lượt đo)</small>
+                                        </td>
+                                        <td class="text-center fw-bold fs-5" id="qtyBNN">0</td>
+                                        <td><input type="text" id="priceBNN" class="form-control money-input" placeholder="0" onkeyup="formatCurrency(this); tinhTien()"></td>
+                                        <td class="total-cell" id="totalBNN">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-info text-dark">4. Khám Phụ Khoa (Nữ)</div>
+                                            <small class="text-muted">Dành cho lao động Nữ</small>
+                                        </td>
+                                        <td class="text-center fw-bold fs-5" id="qtyNu">0</td>
+                                        <td><input type="text" id="priceNu" class="form-control money-input" placeholder="0" onkeyup="formatCurrency(this); tinhTien()"></td>
+                                        <td class="total-cell" id="totalNu">0</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="alert alert-info small mb-0">
+                                <i class="bi bi-info-circle"></i> <b>Ghi chú:</b> Nhập đơn giá theo hợp đồng. Hệ thống sẽ tự động nhân với số lượng thực tế trong danh sách.
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="grand-total-box">
+                                <div class="text-uppercase small opacity-75">TỔNG CỘNG DỰ KIẾN</div>
+                                <div class="fs-2 fw-bold" id="lblGrandTotal">0</div>
+                                <div id="lblSubTotal" class="small mt-1 opacity-75" style="display:none;">(Quy đổi: 0 VND)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="luuBaoGia()"><i class="bi bi-save"></i> Lưu Cấu Hình Giá</button>
+                    <button class="btn btn-outline-secondary" onclick="exportBaoGia()"><i class="bi bi-printer"></i> Xuất Excel Báo Giá</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDetail" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold" id="modalTitle">THỐNG KÊ CHI TIẾT</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="row g-3 mb-3 text-center">
+                        <div class="col-md-4"><div class="card p-3 stat-card border-total"><h3 class="fw-bold text-primary" id="stTong">0</h3><div class="small fw-bold text-muted">1. TỔNG NHÂN SỰ</div><button class="btn btn-sm btn-outline-primary mt-2 w-100" onclick="taiDanhSach('ALL')">Tải DS Tổng</button></div></div>
+                        <div class="col-md-4"><div class="card p-3 stat-card border-toxic"><h3 class="fw-bold text-danger" id="stDocHai">0</h3><div class="small fw-bold text-muted">2. NẶNG NHỌC ĐỘC HẠI</div><button class="btn btn-sm btn-outline-danger mt-2 w-100" onclick="taiDanhSach('DOCHAI')">Tải DS Độc hại</button></div></div>
+                        <div class="col-md-4"><div class="card p-3 stat-card border-bnn"><h3 class="fw-bold text-warning" id="stBNN">0</h3><div class="small fw-bold text-muted">3. KHÁM BNN</div><button class="btn btn-sm btn-outline-warning mt-2 w-100" onclick="taiDanhSach('BNN')">Tải DS BNN</button></div></div>
+                    </div>
+                    <div class="row g-3 text-center">
+                        <div class="col-md-6"><div class="card p-3 stat-card border-normal"><h3 class="fw-bold text-success" id="stDinhKy">0</h3><div class="small fw-bold text-muted">4. CHỈ KHÁM ĐỊNH KỲ</div><button class="btn btn-sm btn-outline-success mt-2 w-100" onclick="taiDanhSach('DINHKY')">Tải DS Định Kỳ</button></div></div>
+                        <div class="col-md-6"><div class="card p-3 stat-card border-missing"><h3 class="fw-bold text-secondary" id="stChuaKham">0</h3><div class="small fw-bold text-muted">5. CHƯA ĐI KHÁM</div><button class="btn btn-sm btn-secondary mt-2 w-100" onclick="taiDanhSach('MISSING')">Tải DS Chưa Khám</button></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const projectUrl = 'https://eoebiveebosvlyndbdak.supabase.co';
+        const projectKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvZWJpdmVlYm9zdmx5bmRiZGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NjI4NjEsImV4cCI6MjA4MzMzODg2MX0.dF5-AmjWlxtJSD2QWHFpiWpHE8l6cHuG_pLxkXD-TUc';
+        const supabaseClient = window.supabase.createClient(projectUrl, projectKey);
+        let currentDotID = null;
+        let currencyMode = 'VND'; // Mặc định
+
+        // --- CÁC HÀM TIỆN ÍCH TÀI CHÍNH ---
+        // 1. Format số tiền khi nhập (VD: 10000 -> 10,000)
+        function formatCurrency(input) {
+            let value = input.value.replace(/\D/g, ""); // Xóa hết ký tự không phải số
+            if (value === "") return;
+            input.value = parseInt(value).toLocaleString('en-US');
+        }
+
+        // 2. Lấy giá trị số từ ô nhập (Xóa dấu phẩy để tính toán)
+        function getNumber(id) {
+            const val = document.getElementById(id).value.replace(/,/g, '');
+            return parseFloat(val) || 0;
+        }
+
+        // 3. Đổi loại tiền
+        function switchCurrency(mode) {
+            currencyMode = mode;
+            const exBox = document.getElementById('exchangeRateBox');
+            const lblUnit = document.getElementById('lblUnit');
+            const lblUnitTotal = document.getElementById('lblUnitTotal');
+
+            if(mode === 'USD') {
+                exBox.style.display = 'flex';
+                lblUnit.innerText = '(USD)';
+                lblUnitTotal.innerText = '(USD)';
+            } else {
+                exBox.style.display = 'none';
+                lblUnit.innerText = '(VND)';
+                lblUnitTotal.innerText = '(VND)';
+            }
+            tinhTien(); // Tính lại ngay
+        }
+
+        // --- LOAD DANH SÁCH (LOGIC CŨ) ---
+        async function loadDanhSach() {
+            const { data: dsDot, error } = await supabaseClient.from('dot_kham').select('*').order('id', { ascending: false });
+            if (error) return console.error(error);
+            const tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
+            for (const item of dsDot) {
+                const { count } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', item.id);
+                let badge = item.id === dsDot[0].id ? '<span class="badge bg-success">Đang chạy</span>' : '<span class="badge bg-secondary">Đã xong</span>';
+                
+                tbody.innerHTML += `<tr>
+                    <td><span class="fw-bold text-primary">${item.ten_dot}</span><br>${badge}</td>
+                    <td><span class="badge bg-light text-dark border fs-6">${count || 0}</span></td>
+                    <td>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-success fw-bold" onclick="lapDanhSach(${item.id})" title="Quét toàn bộ nhân viên"><i class="bi bi-people-fill"></i> Quét Full</button>
+                            <button class="btn btn-sm btn-warning fw-bold text-dark" onclick="vetTuDotCu(${item.id})" title="Lấy người chưa khám từ đợt khác"><i class="bi bi-funnel-fill"></i> Vét Sót</button>
+                            <button class="btn btn-sm btn-primary fw-bold" onclick="xemThongKe(${item.id}, '${item.ten_dot}')" title="Xem báo cáo"><i class="bi bi-file-earmark-bar-graph"></i> Báo Cáo</button>
+                            <button class="btn btn-sm btn-info fw-bold text-white" onclick="tinhChiPhi(${item.id})" title="Tính tiền"><i class="bi bi-cash-stack"></i> Chi Phí</button>
+                        </div>
+                    </td>
+                    <td><button class="btn btn-sm btn-outline-danger" onclick="xoaDot(${item.id})"><i class="bi bi-trash"></i></button></td></tr>`;
+            }
+        }
+        loadDanhSach();
+
+        // --- TÍNH NĂNG TÍNH CHI PHÍ (CẢI TIẾN) ---
+        async function tinhChiPhi(dotId) {
+            currentDotID = dotId;
+            document.getElementById('loadingOverlay').style.display = 'block';
+
+            // 1. Lấy số lượng
+            const { count: cDocHai } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId).eq('phan_loai_lao_dong', 'Độc hại');
+            const { count: cTong } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId);
+            const { count: cBNN } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId).neq('chi_dinh_kham', '');
+            
+            // Check Nữ
+            const { data: nuData } = await supabaseClient.from('ho_so_kham').select('nhan_vien!inner(gioi_tinh)').eq('dot_kham_id', dotId);
+            let cNu = 0;
+            if(nuData) cNu = nuData.filter(x => x.nhan_vien.gioi_tinh && (x.nhan_vien.gioi_tinh.includes('Nữ') || x.nhan_vien.gioi_tinh === 'F')).length;
+
+            const cDinhKy = (cTong || 0) - (cDocHai || 0);
+
+            // Điền số lượng
+            document.getElementById('qtyDinhKy').innerText = cDinhKy.toLocaleString();
+            document.getElementById('qtyDocHai').innerText = (cDocHai || 0).toLocaleString();
+            document.getElementById('qtyBNN').innerText = (cBNN || 0).toLocaleString();
+            document.getElementById('qtyNu').innerText = cNu.toLocaleString();
+
+            // Load giá đã lưu
+            const savedData = JSON.parse(localStorage.getItem(`cost_${dotId}`) || '{}');
+            if(savedData.prices) {
+                document.getElementById('priceDinhKy').value = savedData.prices.dk;
+                document.getElementById('priceDocHai').value = savedData.prices.dh;
+                document.getElementById('priceBNN').value = savedData.prices.bnn;
+                document.getElementById('priceNu').value = savedData.prices.nu;
+            } else {
+                // Reset về 0 nếu chưa có
+                ['priceDinhKy','priceDocHai','priceBNN','priceNu'].forEach(id => document.getElementById(id).value = "");
+            }
+            
+            // Load Currency
+            if(savedData.currency === 'USD') {
+                document.getElementById('currUSD').checked = true;
+                if(savedData.rate) document.getElementById('txtTyGia').value = savedData.rate;
+                switchCurrency('USD');
+            } else {
+                document.getElementById('currVND').checked = true;
+                switchCurrency('VND');
+            }
+
+            tinhTien();
+            document.getElementById('loadingOverlay').style.display = 'none';
+            new bootstrap.Modal(document.getElementById('modalCost')).show();
+        }
+
+        function tinhTien() {
+            // Lấy đơn giá (đã bỏ dấu phẩy)
+            const pDK = getNumber('priceDinhKy');
+            const pDH = getNumber('priceDocHai');
+            const pBNN = getNumber('priceBNN');
+            const pNu = getNumber('priceNu');
+
+            // Lấy số lượng (đã bỏ dấu phẩy hiển thị)
+            const qDK = parseInt(document.getElementById('qtyDinhKy').innerText.replace(/,/g, ''));
+            const qDH = parseInt(document.getElementById('qtyDocHai').innerText.replace(/,/g, ''));
+            const qBNN = parseInt(document.getElementById('qtyBNN').innerText.replace(/,/g, ''));
+            const qNu = parseInt(document.getElementById('qtyNu').innerText.replace(/,/g, ''));
+
+            // Tính thành tiền
+            const tDK = qDK * pDK;
+            const tDH = qDH * pDH;
+            const tBNN = qBNN * pBNN;
+            const tNu = qNu * pNu;
+
+            // Hiển thị thành tiền
+            document.getElementById('totalDinhKy').innerText = tDK.toLocaleString('en-US');
+            document.getElementById('totalDocHai').innerText = tDH.toLocaleString('en-US');
+            document.getElementById('totalBNN').innerText = tBNN.toLocaleString('en-US');
+            document.getElementById('totalNu').innerText = tNu.toLocaleString('en-US');
+
+            const total = tDK + tDH + tBNN + tNu;
+
+            // Hiển thị Tổng cộng
+            if(currencyMode === 'USD') {
+                // Hiển thị USD
+                document.getElementById('lblGrandTotal').innerText = '$ ' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
+                
+                // Quy đổi ra VND
+                const rate = getNumber('txtTyGia');
+                const totalVND = total * rate;
+                const lblSub = document.getElementById('lblSubTotal');
+                lblSub.style.display = 'block';
+                lblSub.innerText = `(Quy đổi: ≈ ${totalVND.toLocaleString('en-US')} VND)`;
+            } else {
+                // Hiển thị VND
+                document.getElementById('lblGrandTotal').innerText = total.toLocaleString('en-US') + ' đ';
+                document.getElementById('lblSubTotal').style.display = 'none';
+            }
+        }
+
+        function luuBaoGia() {
+            const data = {
+                currency: currencyMode,
+                rate: document.getElementById('txtTyGia').value,
+                prices: {
+                    dk: document.getElementById('priceDinhKy').value,
+                    dh: document.getElementById('priceDocHai').value,
+                    bnn: document.getElementById('priceBNN').value,
+                    nu: document.getElementById('priceNu').value
+                }
+            };
+            localStorage.setItem(`cost_${currentDotID}`, JSON.stringify(data));
+            Swal.fire('Đã lưu', 'Cấu hình giá đã được lưu cho đợt này.', 'success');
+        }
+
+        function exportBaoGia() {
+            const cur = currencyMode === 'USD' ? 'USD' : 'VND';
+            const tyGia = document.getElementById('txtTyGia').value;
+            
+            let title = [["BẢNG DỰ TOÁN CHI PHÍ KHÁM SỨC KHỎE"]];
+            let meta = [
+                ["Đợt khám:", document.getElementById('modalTitle').innerText.replace("THỐNG KÊ: ", "")],
+                ["Loại tiền:", cur],
+                ["Ngày xuất:", new Date().toLocaleDateString('vi-VN')]
+            ];
+            if(cur === 'USD') meta.push(["Tỷ giá áp dụng:", tyGia + " VND/USD"]);
+
+            let headers = [["Hạng mục", "Số lượng", "Đơn giá (" + cur + ")", "Thành tiền (" + cur + ")"]];
+            
+            let body = [
+                ["1. Khám Định Kỳ", document.getElementById('qtyDinhKy').innerText, document.getElementById('priceDinhKy').value, document.getElementById('totalDinhKy').innerText],
+                ["2. Khám Độc Hại", document.getElementById('qtyDocHai').innerText, document.getElementById('priceDocHai').value, document.getElementById('totalDocHai').innerText],
+                ["3. Khám BNN", document.getElementById('qtyBNN').innerText, document.getElementById('priceBNN').value, document.getElementById('totalBNN').innerText],
+                ["4. Khám Phụ Khoa", document.getElementById('qtyNu').innerText, document.getElementById('priceNu').value, document.getElementById('totalNu').innerText],
+                ["", "", "TỔNG CỘNG:", document.getElementById('lblGrandTotal').innerText]
+            ];
+            
+            if(cur === 'USD') {
+                body.push(["", "", "QUY ĐỔI VND:", document.getElementById('lblSubTotal').innerText.replace("(Quy đổi: ≈ ", "").replace(" VND)", "")]);
+            }
+
+            const ws = XLSX.utils.book_new();
+            XLSX.utils.sheet_add_aoa(ws, title, {origin: "A1"});
+            XLSX.utils.sheet_add_aoa(ws, meta, {origin: "A3"});
+            XLSX.utils.sheet_add_aoa(ws, headers, {origin: "A8"});
+            XLSX.utils.sheet_add_aoa(ws, body, {origin: "A9"});
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "BaoGia");
+            XLSX.writeFile(wb, "Du_Toan_Chi_Phi.xlsx");
+        }
+
+        // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
+        async function vetTuDotCu(targetDotId) {
+            const { data: listDot } = await supabaseClient.from('dot_kham').select('*').neq('id', targetDotId).order('id', {ascending: false});
+            if(!listDot || listDot.length === 0) return Swal.fire('Thông báo', 'Chưa có đợt khám cũ nào.', 'info');
+            const inputOptions = {}; listDot.forEach(d => inputOptions[d.id] = d.ten_dot);
+            const { value: sourceDotId } = await Swal.fire({ title: 'Chọn đợt vét sót', input: 'select', inputOptions: inputOptions, showCancelButton: true });
+            if (sourceDotId) {
+                document.getElementById('loadingOverlay').style.display = 'block';
+                try {
+                    const { data } = await supabaseClient.from('ho_so_kham').select('*').eq('dot_kham_id', sourceDotId).eq('trang_thai_checkin', false).range(0, 49999);
+                    if(!data || data.length === 0) throw new Error("Đợt này đã khám hết!");
+                    const newData = data.map(i => ({ dot_kham_id: targetDotId, ma_nv: i.ma_nv, bo_phan: i.bo_phan, vi_tri: i.vi_tri, phan_loai_lao_dong: i.phan_loai_lao_dong, chi_dinh_kham: i.chi_dinh_kham, trang_thai_checkin: false }));
+                    const BATCH = 1000; for(let i=0; i<newData.length; i+=BATCH) await supabaseClient.from('ho_so_kham').upsert(newData.slice(i, i+BATCH), { onConflict: 'ma_nv, dot_kham_id', ignoreDuplicates: true });
+                    document.getElementById('loadingOverlay').style.display = 'none'; Swal.fire('Xong', `Đã chuyển ${newData.length} người.`, 'success'); loadDanhSach();
+                } catch(e) { document.getElementById('loadingOverlay').style.display = 'none'; Swal.fire('Lỗi', e.message, 'error'); }
+            }
+        }
+
+        async function lapDanhSach(dotId) {
+             Swal.fire({ title: 'Quét toàn bộ?', text: "Lập danh sách cho toàn bộ nhân viên.", icon: 'info', showCancelButton: true, confirmButtonText: 'Bắt đầu' }).then(async (r) => {
+                if(r.isConfirmed) {
+                    const overlay = document.getElementById('loadingOverlay'); overlay.style.display = 'block';
+                    try {
+                        const [resCD, resCH] = await Promise.all([supabaseClient.from('danh_muc_cong_doan').select('*'), supabaseClient.from('cau_hinh_kham').select('*')]);
+                        let mapCD = {}; resCD.data?.forEach(x => mapCD[x.ma_cong_doan] = x);
+                        let mapCH = {}; resCH.data?.forEach(x => mapCH[x.ma_cong_doan] = x);
+                        const { count: totalNV } = await supabaseClient.from('nhan_vien').select('*', { count: 'exact', head: true });
+                        const PAGE_SIZE = 1000; let processedCount = 0;
+                        for(let offset = 0; offset < totalNV; offset += PAGE_SIZE) {
+                            const { data: batchNV } = await supabaseClient.from('nhan_vien').select('*').range(offset, offset + PAGE_SIZE - 1);
+                            if(!batchNV || batchNV.length === 0) break;
+                            const insertData = batchNV.map(nv => {
+                                let isDocHai = mapCD[nv.ma_cong_doan]?.co_doc_hai ? 'Độc hại' : 'Bình thường';
+                                let chiDinh = []; let cfg = mapCH[nv.ma_cong_doan]?.chi_dinh_bnn;
+                                if(cfg?.tl) chiDinh.push('Thính lực'); if(cfg?.hh) chiDinh.push('Hô hấp');
+                                return { dot_kham_id: dotId, ma_nv: nv.ma_nv, bo_phan: nv.ma_don_vi, vi_tri: nv.ma_chuc_vu, phan_loai_lao_dong: isDocHai, chi_dinh_kham: chiDinh.join(', '), trang_thai_checkin: false };
+                            });
+                            await supabaseClient.from('ho_so_kham').upsert(insertData, { onConflict: 'ma_nv, dot_kham_id', ignoreDuplicates: true });
+                            processedCount += insertData.length;
+                        }
+                        overlay.style.display = 'none'; Swal.fire('Xong', `Đã cập nhật ${processedCount} người.`, 'success'); loadDanhSach();
+                    } catch (err) { overlay.style.display = 'none'; Swal.fire('Lỗi', err.message, 'error'); }
+                }
+            });
+        }
+        
+        async function xemThongKe(dotId, tenDot) {
+            currentDotID = dotId;
+            document.getElementById('modalTitle').innerText = "THỐNG KÊ: " + tenDot;
+            new bootstrap.Modal(document.getElementById('modalDetail')).show();
+
+            const { count: cTong } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId);
+            const { count: cDocHai } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId).eq('phan_loai_lao_dong', 'Độc hại');
+            const { count: cBNN } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId).neq('chi_dinh_kham', '');
+            const { count: cDaKham } = await supabaseClient.from('ho_so_kham').select('*', { count: 'exact', head: true }).eq('dot_kham_id', dotId).eq('trang_thai_checkin', true);
+
+            document.getElementById('stTong').innerText = cTong || 0;
+            document.getElementById('stDocHai').innerText = cDocHai || 0;
+            document.getElementById('stBNN').innerText = cBNN || 0;
+            document.getElementById('stDinhKy').innerText = ((cTong || 0) - (cDocHai || 0)) || 0;
+            document.getElementById('stChuaKham').innerText = ((cTong || 0) - (cDaKham || 0)) || 0;
+        }
+
+        async function taiDanhSach(loai) {
+            if(!currentDotID) return;
+            const btn = event.target; const originalText = btn.innerHTML; btn.innerHTML = 'Loading...'; btn.disabled = true;
+            try {
+                const [resDV, resCV, resCD] = await Promise.all([supabaseClient.from('danh_muc_don_vi').select('*'), supabaseClient.from('danh_muc_chuc_vu').select('*'), supabaseClient.from('danh_muc_cong_doan').select('*')]);
+                let mapDV = {}; resDV.data?.forEach(x => mapDV[x.ma_don_vi] = x.ten_don_vi);
+                let mapCV = {}; resCV.data?.forEach(x => mapCV[x.ma_chuc_vu] = x.ten_chuc_vu);
+                let mapCD = {}; resCD.data?.forEach(x => mapCD[x.ma_cong_doan] = x.ten_cong_doan);
+
+                let allData = []; let offset = 0; const PAGE_SIZE = 2000; let keep = true;
+                while(keep) {
+                    let q = supabaseClient.from('ho_so_kham').select('ma_nv, bo_phan, vi_tri, phan_loai_lao_dong, chi_dinh_kham, trang_thai_checkin, nhan_vien(ho_ten, ma_cong_doan)').eq('dot_kham_id', currentDotID).range(offset, offset + PAGE_SIZE - 1);
+                    if(loai === 'DOCHAI') q = q.eq('phan_loai_lao_dong', 'Độc hại');
+                    else if(loai === 'BNN') q = q.neq('chi_dinh_kham', '');
+                    else if(loai === 'MISSING') q = q.eq('trang_thai_checkin', false);
+                    else if(loai === 'DINHKY') q = q.eq('phan_loai_lao_dong', 'Bình thường');
+
+                    const { data, error } = await q;
+                    if(error) throw error;
+                    if(data && data.length > 0) { allData = allData.concat(data); offset += PAGE_SIZE; if(data.length < PAGE_SIZE) keep = false; } else keep = false;
+                }
+                if(allData.length === 0) throw new Error("Không có dữ liệu.");
+
+                const exportData = allData.map((item, idx) => ({
+                    "STT": idx + 1, "Mã NV": item.ma_nv, "Họ Tên": item.nhan_vien?.ho_ten,
+                    "Mã ĐV": item.bo_phan, "Tên Đơn Vị": mapDV[item.bo_phan] || '',
+                    "Mã CV": item.vi_tri, "Tên Chức Vụ": mapCV[item.vi_tri] || '',
+                    "Mã CĐ": item.nhan_vien?.ma_cong_doan, "Tên Công Đoạn": mapCD[item.nhan_vien?.ma_cong_doan] || '',
+                    "Phân Loại": item.phan_loai_lao_dong, "Chỉ Định": item.chi_dinh_kham,
+                    "Trạng Thái": item.trang_thai_checkin ? "Đã khám" : "Chưa khám"
+                }));
+                const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportData), "Data");
+                XLSX.writeFile(wb, `DS_${loai}_KSK.xlsx`);
+            } catch(e) { Swal.fire('Lỗi', e.message, 'error'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
+        }
+
+        async function taoDotKham() {
+            const ten = document.getElementById('txtTenDot').value; const ngay = document.getElementById('txtNgay').value || null;
+            if(!ten) return Swal.fire('Lỗi', 'Nhập tên', 'error');
+            await supabaseClient.from('dot_kham').insert({ten_dot: ten, ngay_bat_dau: ngay}); loadDanhSach();
+        }
+        async function xoaDot(id) { if(confirm('Xóa?')) { await supabaseClient.from('dot_kham').delete().eq('id', id); loadDanhSach(); } }
+    </script>
+</body>
+</html>

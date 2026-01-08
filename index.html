@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSE CiBao - Hệ Thống Quản Lý Sức Khỏe</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f4f6f9; }
+        .hero-section {
+            background: linear-gradient(135deg, #0d6efd 0%, #0099ff 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+        }
+        .menu-card {
+            border: none;
+            border-radius: 15px;
+            transition: all 0.3s;
+            cursor: pointer;
+            height: 100%;
+            text-decoration: none; /* Bỏ gạch chân link */
+            color: inherit;
+        }
+        .menu-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .icon-box {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        .card-title { font-weight: bold; font-size: 1.1rem; }
+        .card-text { font-size: 0.9rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+
+    <div class="hero-section text-center shadow">
+        <h1 class="fw-bold"><i class="bi bi-hospital-fill"></i> HSE CI BAO SYSTEM</h1>
+        <p class="mb-0">Hệ thống quản lý Sức khỏe & Bệnh nghề nghiệp toàn diện</p>
+    </div>
+
+    <div class="container">
+        
+        <h5 class="text-muted fw-bold mb-3 border-bottom pb-2"><i class="bi bi-gear-fill"></i> CẤU HÌNH & DỮ LIỆU GỐC</h5>
+        <div class="row g-4 mb-5">
+            <div class="col-md-4 col-lg-3">
+                <a href="admin_setup.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-primary"><i class="bi bi-database-gear"></i></div>
+                    <div class="card-title">1. Cấu Hình Hệ Thống</div>
+                    <div class="card-text">Nạp danh mục Đơn vị, Chức vụ, Công đoạn & Quy định khám.</div>
+                </a>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <a href="employee_import.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-success"><i class="bi bi-person-lines-fill"></i></div>
+                    <div class="card-title">2. Quản Lý Nhân Sự</div>
+                    <div class="card-text">Nhập nhân viên mới, tự động tính toán phân loại độc hại.</div>
+                </a>
+            </div>
+             <div class="col-md-4 col-lg-3">
+                <a href="campaign.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-primary"><i class="bi bi-calendar-plus-fill"></i></div>
+                    <div class="card-title">3. Tạo Đợt Khám</div>
+                    <div class="card-text">Tạo đợt khám mới (VD: KSK 2026) để bắt đầu nhập liệu.</div>
+                </a>
+            </div>
+        </div>
+
+        <h5 class="text-muted fw-bold mb-3 border-bottom pb-2"><i class="bi bi-activity"></i> TÁC NGHIỆP KHÁM SỨC KHỎE</h5>
+        <div class="row g-4 mb-5">
+            <div class="col-md-4 col-lg-3">
+                <a href="checkin.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-warning"><i class="bi bi-qr-code-scan"></i></div>
+                    <div class="card-title">Check-in Khám</div>
+                    <div class="card-text">Quét mã thẻ hoặc nhập tay để ghi nhận người đến khám.</div>
+                </a>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <a href="import_final.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-danger"><i class="bi bi-file-earmark-medical"></i></div>
+                    <div class="card-title">Nhập Kết Quả</div>
+                    <div class="card-text">Import file kết quả khám từ bệnh viện (Định kỳ & BNN).</div>
+                </a>
+            </div>
+        </div>
+
+        <h5 class="text-muted fw-bold mb-3 border-bottom pb-2"><i class="bi bi-graph-up-arrow"></i> BÁO CÁO & KẾT QUẢ</h5>
+        <div class="row g-4 mb-5">
+            <div class="col-md-4 col-lg-3">
+                <a href="report.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-info"><i class="bi bi-pie-chart-fill"></i></div>
+                    <div class="card-title">Dashboard Báo Cáo</div>
+                    <div class="card-text">Biểu đồ sức khỏe, top bệnh lý và cảnh báo BNN.</div>
+                </a>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <a href="export.html" class="card menu-card shadow-sm text-center p-4">
+                    <div class="icon-box text-secondary"><i class="bi bi-printer-fill"></i></div>
+                    <div class="card-title">Xuất Bản & In Ấn</div>
+                    <div class="card-text">In phiếu kết quả cá nhân và Xuất sổ quản lý sức khỏe.</div>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="text-center py-4 text-muted small">
+        &copy; 2026 CiBao HSE System.
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSE Dashboard - Báo Cáo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .kpi-box { padding: 20px; border-radius: 10px; color: white; text-align: center; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .bg-gradient-1 { background: linear-gradient(45deg, #4e73df, #224abe); }
+        .bg-gradient-2 { background: linear-gradient(45deg, #1cc88a, #13855c); }
+        .bg-gradient-3 { background: linear-gradient(45deg, #e74a3b, #be2617); }
+        .high-risk { background-color: #ffecec; font-weight: bold; color: #e74a3b; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="text-primary fw-bold">DASHBOARD SỨC KHỎE & KHOANH VÙNG</h3>
+            <div class="d-flex gap-2">
+                <select id="selDotKham" class="form-select fw-bold border-primary" onchange="loadData()"></select>
+                <a href="index.html" class="btn btn-secondary"><i class="bi bi-house"></i> Thoát</a>
+            </div>
+        </div>
+
+        <div id="loading" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+
+        <div id="mainContent" style="display:none">
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="kpi-box bg-gradient-1">
+                        <h4>TỔNG NHÂN SỰ</h4>
+                        <h1 class="display-4 fw-bold" id="kpiTotal">0</h1>
+                        <small>Tổng số người trong danh sách đợt</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="kpi-box bg-gradient-2">
+                        <h4>SỨC KHỎE TỐT (I, II)</h4>
+                        <h1 class="display-4 fw-bold" id="kpiGood">0</h1>
+                        <small id="kpiGoodPct">--%</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="kpi-box bg-gradient-3">
+                        <h4>SỨC KHỎE YẾU (IV, V)</h4>
+                        <h1 class="display-4 fw-bold" id="kpiBad">0</h1>
+                        <small id="kpiBadPct">Cần theo dõi đặc biệt</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header fw-bold text-primary">PHÂN LOẠI SỨC KHỎE</div>
+                        <div class="card-body"><canvas id="chartLoai" height="200"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header fw-bold text-danger">TOP BỆNH LÝ PHỔ BIẾN</div>
+                        <div class="card-body"><canvas id="chartBenh" height="200"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-danger mb-4">
+                <div class="card-header bg-danger text-white fw-bold">
+                    <i class="bi bi-exclamation-triangle"></i> BẢN ĐỒ RỦI RO SỨC KHỎE THEO ĐƠN VỊ
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-bordered table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Đơn Vị / Bộ Phận</th>
+                                    <th class="text-center">Tổng NV</th>
+                                    <th class="text-center text-success">Loại I, II</th>
+                                    <th class="text-center text-warning">Loại III</th>
+                                    <th class="text-center text-danger fw-bold">Loại IV, V (Yếu)</th>
+                                    <th class="text-center">Tỷ lệ Yếu</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblRisk"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const projectUrl = 'https://eoebiveebosvlyndbdak.supabase.co';
+        const projectKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvZWJpdmVlYm9zdmx5bmRiZGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NjI4NjEsImV4cCI6MjA4MzMzODg2MX0.dF5-AmjWlxtJSD2QWHFpiWpHE8l6cHuG_pLxkXD-TUc';
+        const supabaseClient = window.supabase.createClient(projectUrl, projectKey);
+        let chartLoai = null, chartBenh = null;
+
+        // Init
+        async function init() {
+            const { data } = await supabaseClient.from('dot_kham').select('*').order('id', {ascending: false});
+            const sel = document.getElementById('selDotKham');
+            data?.forEach(d => { let opt = document.createElement('option'); opt.value = d.id; opt.text = d.ten_dot; sel.add(opt); });
+            loadData();
+        }
+        init();
+
+        async function loadData() {
+            const dotId = document.getElementById('selDotKham').value;
+            if(!dotId) return;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+
+            // 1. Tải Từ Điển Đơn Vị (Để dịch Mã -> Tên)
+            const { data: dvData } = await supabaseClient.from('danh_muc_don_vi').select('*');
+            let mapDonVi = {};
+            if(dvData) dvData.forEach(d => mapDonVi[d.ma_don_vi] = d.ten_don_vi);
+
+            // 2. Lấy Tổng số người TRƯỚC (Query Count riêng cho nhanh và chính xác)
+            const { count: totalCount } = await supabaseClient.from('ho_so_kham')
+                .select('*', { count: 'exact', head: true })
+                .eq('dot_kham_id', dotId);
+            
+            document.getElementById('kpiTotal').innerText = totalCount || 0;
+
+            // 3. Tải chi tiết dữ liệu (Loop 6000 dòng)
+            let allData = [];
+            let offset = 0; const PAGE = 2000; let keep = true;
+            while(keep) {
+                const { data, error } = await supabaseClient
+                    .from('ho_so_kham')
+                    .select('xep_loai, ket_luan_benh, bo_phan')
+                    .eq('dot_kham_id', dotId)
+                    .range(offset, offset + PAGE - 1);
+                
+                if(error || !data || data.length === 0) keep = false;
+                else {
+                    allData = allData.concat(data);
+                    offset += PAGE;
+                    if(data.length < PAGE) keep = false;
+                }
+            }
+
+            processData(allData, mapDonVi);
+        }
+
+        function processData(data, mapDonVi) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+
+            let countGood=0, countBad=0, countMed=0;
+            let deptStats = {};
+            let benhMap = {};
+
+            data.forEach(d => {
+                // Phân loại
+                let l = d.xep_loai ? d.xep_loai.toString() : '0';
+                if(['1','2','I','II'].includes(l)) countGood++;
+                else if(['3','III'].includes(l)) countMed++;
+                else if(['4','5','IV','V'].includes(l)) countBad++;
+
+                // Đơn vị (Dùng Mã nếu ko có tên)
+                const maDV = d.bo_phan || 'Khác';
+                const tenDV = mapDonVi[maDV] || maDV; // Dịch mã sang tên
+
+                if(!deptStats[tenDV]) deptStats[tenDV] = { total: 0, bad: 0, good: 0, med: 0 };
+                deptStats[tenDV].total++;
+                if(['4','5','IV','V'].includes(l)) deptStats[tenDV].bad++;
+                else if(['3','III'].includes(l)) deptStats[tenDV].med++;
+                else if(['1','2','I','II'].includes(l)) deptStats[tenDV].good++;
+
+                // Bệnh
+                if(d.ket_luan_benh) {
+                    d.ket_luan_benh.split(/[;,]/).forEach(b => {
+                        let bk = b.trim();
+                        if(bk.length>2 && bk.toLowerCase()!='bình thường') benhMap[bk] = (benhMap[bk]||0)+1;
+                    });
+                }
+            });
+
+            // UI KPI
+            document.getElementById('kpiGood').innerText = countGood;
+            document.getElementById('kpiBad').innerText = countBad;
+
+            // Render Charts
+            renderCharts(countGood, countMed, countBad, benhMap);
+
+            // Render Table (Khoanh vùng)
+            const riskArr = Object.entries(deptStats)
+                .map(([name, s]) => ({ name, ...s, pct: s.total > 0 ? (s.bad/s.total*100).toFixed(1) : 0 }))
+                .sort((a,b) => b.pct - a.pct); // Sắp xếp theo tỷ lệ yếu giảm dần
+
+            const tbl = document.getElementById('tblRisk'); tbl.innerHTML = '';
+            riskArr.forEach(r => {
+                const cls = r.pct > 5 ? 'high-risk' : ''; // Nếu > 5% yếu thì tô đỏ
+                tbl.innerHTML += `<tr class="${cls}">
+                    <td class="text-start">${r.name}</td>
+                    <td>${r.total}</td>
+                    <td class="text-success">${r.good}</td>
+                    <td class="text-warning">${r.med}</td>
+                    <td class="text-danger fw-bold">${r.bad}</td>
+                    <td>${r.pct}%</td>
+                </tr>`;
+            });
+        }
+
+        function renderCharts(good, med, bad, benhMap) {
+            if(chartLoai) chartLoai.destroy();
+            chartLoai = new Chart(document.getElementById('chartLoai'), {
+                type: 'pie',
+                data: {
+                    labels: ['Tốt (I, II)', 'Trung bình (III)', 'Yếu (IV, V)'],
+                    datasets: [{ data: [good, med, bad], backgroundColor: ['#198754', '#ffc107', '#dc3545'] }]
+                }
+            });
+
+            if(chartBenh) chartBenh.destroy();
+            const topBenh = Object.entries(benhMap).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+            chartBenh = new Chart(document.getElementById('chartBenh'), {
+                type: 'bar',
+                data: {
+                    labels: topBenh.map(x=>x[0]),
+                    datasets: [{ label: 'Số ca', data: topBenh.map(x=>x[1]), backgroundColor: '#0d6efd' }]
+                },
+                options: { indexAxis: 'y' }
+            });
+        }
+    </script>
+</body>
+</html>

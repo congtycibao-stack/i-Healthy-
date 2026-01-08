@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xuất Sổ Sức Khỏe - HSE CiBao</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <h2 class="text-center mb-4 fw-bold text-primary">XUẤT SỔ QUẢN LÝ SỨC KHỎE (THEO LUẬT)</h2>
+        
+        <div class="card p-4 mx-auto" style="max-width: 600px;">
+            <div class="mb-3">
+                <label>Chọn Đợt Khám:</label>
+                <select id="selDotKham" class="form-control"></select>
+            </div>
+            <button id="btnExport" class="btn btn-success w-100 py-2" onclick="xuatSoSucKhoe()">
+                TẢI FILE EXCEL (SỔ QUẢN LÝ)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const projectUrl = 'https://eoebiveebosvlyndbdak.supabase.co';
+        const projectKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvZWJpdmVlYm9zdmx5bmRiZGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NjI4NjEsImV4cCI6MjA4MzMzODg2MX0.dF5-AmjWlxtJSD2QWHFpiWpHE8l6cHuG_pLxkXD-TUc';
+        const supabaseClient = window.supabase.createClient(projectUrl, projectKey);
+
+        async function init() {
+            const { data } = await supabaseClient.from('dot_kham').select('*').order('id', {ascending: false});
+            const sel = document.getElementById('selDotKham');
+            data.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.text = d.ten_dot;
+                sel.add(opt);
+            });
+        }
+        init();
+
+        async function xuatSoSucKhoe() {
+            const dotId = document.getElementById('selDotKham').value;
+            const btn = document.getElementById('btnExport');
+            btn.innerHTML = 'Đang tải dữ liệu lớn...'; btn.disabled = true;
+
+            try {
+                // Fetch All Data (Loop)
+                let allData = [];
+                let offset = 0;
+                const PAGE_SIZE = 2000;
+                let keep = true;
+
+                while(keep) {
+                    const { data, error } = await supabaseClient
+                        .from('ho_so_kham')
+                        .select('ma_nv, xep_loai, ket_luan_benh, ghi_chu, nhan_vien(ho_ten, nam_sinh, gio_tinh, ma_don_vi, ma_cong_doan)')
+                        .eq('dot_kham_id', dotId)
+                        .range(offset, offset + PAGE_SIZE - 1);
+                    
+                    if(error) throw error;
+                    if(data && data.length > 0) {
+                        allData = allData.concat(data);
+                        offset += PAGE_SIZE;
+                        if(data.length < PAGE_SIZE) keep = false;
+                    } else keep = false;
+                }
+
+                // Map to Excel format
+                const exportData = allData.map((item, idx) => ({
+                    "STT": idx + 1,
+                    "Họ và tên": item.nhan_vien?.ho_ten,
+                    "Năm sinh": item.nhan_vien?.nam_sinh,
+                    "Giới tính": item.nhan_vien?.gio_tinh,
+                    "Đơn vị": item.nhan_vien?.ma_don_vi,
+                    "Công đoạn": item.nhan_vien?.ma_cong_doan,
+                    "Phân loại SK": item.xep_loai,
+                    "Bệnh lý/Kết luận": item.ket_luan_benh,
+                    "Ghi chú/Đề nghị": item.ghi_chu
+                }));
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportData), "SoQuanLySK");
+                XLSX.writeFile(wb, "So_Quan_Ly_Suc_Khoe.xlsx");
+
+            } catch(e) {
+                alert('Lỗi: ' + e.message);
+            } finally {
+                btn.innerHTML = 'TẢI FILE EXCEL (SỔ QUẢN LÝ)'; btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
