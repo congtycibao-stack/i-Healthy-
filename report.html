@@ -20,6 +20,8 @@
         .bg-g4 { background: linear-gradient(45deg, #e74a3b, #be2617); }
         .clickable-row { cursor: pointer; transition: background 0.2s; }
         .clickable-row:hover { background-color: #f1f3f5; }
+        /* Style cho biểu đồ tròn gọn gàng */
+        .chart-wrapper { position: relative; height: 260px; width: 100%; display: flex; justify-content: center; align-items: center; }
     </style>
 </head>
 <body class="bg-light">
@@ -41,7 +43,7 @@
                     
                     <div class="col-md-4 border-start ps-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="fw-bold small text-muted"><i class="bi bi-cash-coin"></i> CHI PHÍ (ĐÃ LẤY TỪ CẤU HÌNH)</label>
+                            <label class="fw-bold small text-muted"><i class="bi bi-cash-coin"></i> CHI PHÍ (TỰ ĐỘNG)</label>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="chkUSD" onchange="toggleCurrency()">
                                 <label class="form-check-label fw-bold" for="chkUSD">Xem USD ($)</label>
@@ -57,7 +59,8 @@
                                 <input type="text" id="priceBNN" class="form-control text-end fw-bold" readonly>
                             </div>
                         </div>
-                        <input type="hidden" id="exchangeRate" value="25400"> </div>
+                        <input type="hidden" id="exchangeRate" value="25400">
+                    </div>
 
                     <div class="col-md-2 text-end">
                         <a href="index.html" class="btn btn-secondary w-100"><i class="bi bi-house"></i> Thoát</a>
@@ -81,14 +84,16 @@
                 <div class="col-12">
                     <div class="card shadow-sm border-danger">
                         <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between">
-                            <span><i class="bi bi-heart-pulse-fill"></i> PHÂN TÍCH BỆNH LÝ & SỨC KHỎE (TẠI ĐƠN VỊ ĐANG CHỌN)</span>
+                            <span><i class="bi bi-heart-pulse-fill"></i> PHÂN TÍCH BỆNH LÝ & SỨC KHỎE</span>
                             <span class="badge bg-white text-danger" id="totalBenhLy">0 ca bệnh</span>
                         </div>
                         <div class="card-body p-0">
                             <div class="row g-0">
-                                <div class="col-md-4 p-3 border-end">
-                                    <h6 class="text-center fw-bold text-muted">TOP 5 BỆNH PHỔ BIẾN</h6>
-                                    <canvas id="chartBenh" height="250"></canvas>
+                                <div class="col-md-4 p-3 border-end d-flex flex-column align-items-center justify-content-center bg-white">
+                                    <h6 class="text-center fw-bold text-muted mb-3">TỶ LỆ 5 BỆNH PHỔ BIẾN NHẤT</h6>
+                                    <div class="chart-wrapper">
+                                        <canvas id="chartBenh"></canvas>
+                                    </div>
                                 </div>
                                 <div class="col-md-8">
                                     <div class="table-responsive" style="max-height: 300px;">
@@ -175,10 +180,8 @@
         let mapDonVi = {};
         let filteredData = [];
         let chartBenh = null;
-        let currentDiseaseList = []; // Để tải excel
+        let currentDiseaseList = []; 
         let currentDiseaseName = "";
-
-        // Biến lưu giá (Lấy từ localStorage của trang Campaign)
         let costConfig = { dk: 0, bnn: 0, rate: 25400, currency: 'VND' };
 
         async function init() {
@@ -191,7 +194,6 @@
             const { data: dv } = await supabaseClient.from('danh_muc_don_vi').select('*');
             dv?.forEach(i => mapDonVi[i.ma_don_vi] = i.ten_don_vi);
 
-            // Load Dữ liệu ban đầu
             loadData();
         }
         init();
@@ -200,7 +202,7 @@
             const dotId = document.getElementById('selDotKham').value;
             if(!dotId) return;
 
-            // 1. TỰ ĐỘNG LẤY CHI PHÍ TỪ TRANG QUẢN LÝ (CAMPAIGN)
+            // 1. LẤY CHI PHÍ
             const savedCost = localStorage.getItem(`cost_${dotId}`);
             if(savedCost) {
                 const parsed = JSON.parse(savedCost);
@@ -216,7 +218,6 @@
                     document.getElementById('chkUSD').checked = false;
                 }
             } else {
-                // Mặc định nếu chưa lưu
                 costConfig = { dk: 150000, bnn: 300000, rate: 25400, currency: 'VND' };
             }
             updateCostUI();
@@ -234,7 +235,7 @@
                 if(data && data.length > 0) { rawData = rawData.concat(data); offset += PAGE; if(data.length < PAGE) keep = false; } else keep = false;
             }
 
-            // Populate Filter Đơn Vị
+            // Populate Filter
             const selDonVi = document.getElementById('selDonVi');
             selDonVi.innerHTML = '<option value="ALL">-- TOÀN CÔNG TY --</option>';
             const distinctDV = [...new Set(rawData.map(i => i.bo_phan))].sort();
@@ -249,18 +250,15 @@
         function toggleCurrency() {
             costConfig.currency = document.getElementById('chkUSD').checked ? 'USD' : 'VND';
             updateCostUI();
-            renderTableCost(); // Vẽ lại bảng
+            renderTableCost(); 
         }
 
         function updateCostUI() {
             const isUSD = costConfig.currency === 'USD';
             const rate = isUSD ? costConfig.rate : 1;
             
-            // Hiển thị giá đơn vị
             document.getElementById('priceDK').value = (costConfig.dk / rate).toLocaleString('en-US', {maximumFractionDigits: 2});
             document.getElementById('priceBNN').value = (costConfig.bnn / rate).toLocaleString('en-US', {maximumFractionDigits: 2});
-            
-            // Cập nhật nhãn đơn vị tiền
             document.querySelectorAll('.currency-unit').forEach(el => el.innerText = isUSD ? "($ USD)" : "(VNĐ)");
         }
 
@@ -268,7 +266,7 @@
             const selVal = document.getElementById('selDonVi').value;
             filteredData = (selVal === 'ALL') ? rawData : rawData.filter(i => i.bo_phan === selVal);
 
-            // --- 1. UPDATE KPI ---
+            // KPI
             document.getElementById('kpiTotal').innerText = filteredData.length.toLocaleString();
             document.getElementById('kpiDK').innerText = filteredData.filter(i => i.phan_loai_lao_dong !== 'Độc hại').length.toLocaleString();
             document.getElementById('kpiBNN').innerText = filteredData.filter(i => i.phan_loai_lao_dong === 'Độc hại').length.toLocaleString();
@@ -277,10 +275,7 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
 
-            // --- 2. PHÂN TÍCH BỆNH LÝ ---
             analyzeDiseases();
-
-            // --- 3. BẢNG CHI PHÍ ---
             renderTableCost();
         }
 
@@ -290,11 +285,9 @@
 
             filteredData.forEach(p => {
                 if (p.ket_luan_benh) {
-                    // Tách bệnh theo dấu phẩy hoặc chấm phẩy
                     const diseases = p.ket_luan_benh.split(/[;,]/);
                     diseases.forEach(d => {
                         let name = d.trim();
-                        // Loại bỏ các kết luận vô nghĩa
                         if (name.length > 2 && !name.toLowerCase().includes('bình thường') && !name.toLowerCase().includes('loại')) {
                             if (!diseaseMap[name]) diseaseMap[name] = [];
                             diseaseMap[name].push(p);
@@ -306,10 +299,9 @@
 
             document.getElementById('totalBenhLy').innerText = `${totalCases} trường hợp`;
 
-            // Sort top bệnh
             const sortedDiseases = Object.entries(diseaseMap).sort((a, b) => b[1].length - a[1].length);
             
-            // Render Table Disease
+            // Render Table
             const tbody = document.getElementById('tblBenhLy');
             tbody.innerHTML = '';
             sortedDiseases.forEach(([name, list]) => {
@@ -319,30 +311,32 @@
                         <td>${name}</td>
                         <td class="text-center fw-bold">${list.length}</td>
                         <td class="text-center text-muted">${pct}%</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-primary" onclick="showDiseaseDetail('${name}')">Xem DS</button>
-                        </td>
+                        <td class="text-center"><button class="btn btn-sm btn-primary" onclick="showDiseaseDetail('${name}')">Xem DS</button></td>
                     </tr>
                 `;
             });
 
-            // Store for global access
             window.diseaseMap = diseaseMap;
 
-            // Render Chart (Top 5)
+            // Render Chart (Doughnut - Thay vì Bar cho gọn)
             const top5 = sortedDiseases.slice(0, 5);
             if(chartBenh) chartBenh.destroy();
             chartBenh = new Chart(document.getElementById('chartBenh'), {
-                type: 'bar',
+                type: 'doughnut', // ĐỔI SANG DOUGHNUT CHO GỌN
                 data: {
                     labels: top5.map(x => x[0]),
                     datasets: [{
-                        label: 'Số người mắc',
                         data: top5.map(x => x[1].length),
-                        backgroundColor: '#dc3545'
+                        backgroundColor: ['#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0d6efd']
                     }]
                 },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    }
+                }
             });
         }
 
@@ -354,9 +348,7 @@
 
             const tbody = document.getElementById('tblMain'); tbody.innerHTML = '';
             
-            // Group data by Unit
             let groups = {};
-            // Nếu đang filter 1 đơn vị, thì chỉ hiện 1 dòng. Nếu ALL thì hiện tất cả.
             const listToRender = (document.getElementById('selDonVi').value === 'ALL') ? rawData : filteredData;
 
             listToRender.forEach(i => {
@@ -382,39 +374,27 @@
                 </tr>`;
             });
 
-            // Update Footer
             document.getElementById('tfTotal').innerText = sumTotal.toLocaleString();
             document.getElementById('tfDK').innerText = sumDK.toLocaleString();
             document.getElementById('tfBNN').innerText = sumBNN.toLocaleString();
             document.getElementById('tfCost').innerText = sumCost.toLocaleString('en-US', {maximumFractionDigits: 0}) + (isUSD ? ' $' : ' đ');
         }
 
-        // --- EXPORT & MODAL ---
         window.showDiseaseDetail = function(name) {
             currentDiseaseName = name;
             currentDiseaseList = window.diseaseMap[name];
-            
             document.getElementById('modalBenhTitle').innerText = `Danh Sách: ${name} (${currentDiseaseList.length} người)`;
             const tb = document.getElementById('tblBenhDetail'); tb.innerHTML = '';
-            
             currentDiseaseList.forEach(p => {
-                tb.innerHTML += `<tr>
-                    <td>${p.ma_nv}</td>
-                    <td>${p.nhan_vien?.ho_ten}</td>
-                    <td>${mapDonVi[p.bo_phan] || p.bo_phan}</td>
-                    <td>${p.ket_luan_benh}</td>
-                </tr>`;
+                tb.innerHTML += `<tr><td>${p.ma_nv}</td><td>${p.nhan_vien?.ho_ten}</td><td>${mapDonVi[p.bo_phan] || p.bo_phan}</td><td>${p.ket_luan_benh}</td></tr>`;
             });
             new bootstrap.Modal(document.getElementById('modalBenh')).show();
         }
 
         window.downloadBenhList = function() {
             const data = currentDiseaseList.map(p => ({
-                "Mã NV": p.ma_nv,
-                "Họ Tên": p.nhan_vien?.ho_ten,
-                "Bộ Phận": mapDonVi[p.bo_phan] || p.bo_phan,
-                "Bệnh Lý": currentDiseaseName,
-                "Ghi chú BS": p.ket_luan_benh
+                "Mã NV": p.ma_nv, "Họ Tên": p.nhan_vien?.ho_ten,
+                "Bộ Phận": mapDonVi[p.bo_phan] || p.bo_phan, "Bệnh Lý": currentDiseaseName, "Ghi chú BS": p.ket_luan_benh
             }));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "DanhSachBenh");
