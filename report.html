@@ -3,62 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HSE Report - Báo Cáo Sức Khỏe</title>
+    <title>HSE Report Pro - Phân Tích & Chi Phí</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <style>
         .kpi-box { padding: 20px; border-radius: 10px; color: white; text-align: center; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .bg-g1 { background: linear-gradient(45deg, #4e73df, #224abe); } /* Tổng */
-        .bg-g2 { background: linear-gradient(45deg, #1cc88a, #13855c); } /* Định kỳ */
-        .bg-g3 { background: linear-gradient(45deg, #f6c23e, #dda20a); color: #333; } /* BNN */
-        .bg-g4 { background: linear-gradient(45deg, #e74a3b, #be2617); } /* Chưa khám */
+        .bg-g1 { background: linear-gradient(45deg, #4e73df, #224abe); }
+        .bg-g2 { background: linear-gradient(45deg, #1cc88a, #13855c); }
+        .bg-g3 { background: linear-gradient(45deg, #f6c23e, #dda20a); color: #333; }
+        .bg-g4 { background: linear-gradient(45deg, #e74a3b, #be2617); }
+        .clickable-row { cursor: pointer; transition: background 0.2s; }
+        .clickable-row:hover { background-color: #f1f3f5; }
     </style>
 </head>
 <body class="bg-light">
     <div class="container-fluid py-4">
-        <div class="card shadow-sm mb-4">
+        
+        <div class="card shadow-sm mb-4 border-0">
             <div class="card-body">
-                <div class="row g-3 align-items-end">
+                <div class="row g-3 align-items-center">
                     <div class="col-md-3">
-                        <label class="fw-bold">Chọn Đợt Khám:</label>
+                        <label class="fw-bold small text-muted">CHỌN ĐỢT KHÁM</label>
                         <select id="selDotKham" class="form-select fw-bold border-primary" onchange="loadData()"></select>
                     </div>
                     <div class="col-md-3">
-                        <label class="fw-bold text-success">Lọc theo Đơn Vị:</label>
+                        <label class="fw-bold small text-muted text-success">LỌC THEO ĐƠN VỊ</label>
                         <select id="selDonVi" class="form-select fw-bold text-success border-success" onchange="filterData()">
                             <option value="ALL">-- TOÀN CÔNG TY --</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                         <label class="small text-muted">Đơn giá ĐK (VNĐ)</label>
-                         <input type="number" id="priceDK" class="form-control form-control-sm text-end" value="150000" onchange="renderTable()">
-                    </div>
-                    <div class="col-md-2">
-                         <label class="small text-muted">Đơn giá BNN (VNĐ)</label>
-                         <input type="number" id="priceBNN" class="form-control form-control-sm text-end" value="300000" onchange="renderTable()">
-                    </div>
-                    <div class="col-md-2">
+                    
+                    <div class="col-md-4 border-start ps-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="fw-bold small text-muted"><i class="bi bi-cash-coin"></i> CHI PHÍ (ĐÃ LẤY TỪ CẤU HÌNH)</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="chkUSD" onchange="toggleCurrency()">
+                                <label class="form-check-label fw-bold" for="chkUSD">Xem USD ($)</label>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light">Định Kỳ</span>
+                                <input type="text" id="priceDK" class="form-control text-end fw-bold" readonly>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light">BNN</span>
+                                <input type="text" id="priceBNN" class="form-control text-end fw-bold" readonly>
+                            </div>
+                        </div>
+                        <input type="hidden" id="exchangeRate" value="25400"> </div>
+
+                    <div class="col-md-2 text-end">
                         <a href="index.html" class="btn btn-secondary w-100"><i class="bi bi-house"></i> Thoát</a>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="loading" class="text-center py-5"><div class="spinner-border text-primary"></div><div class="mt-2">Đang tải dữ liệu...</div></div>
+        <div id="loading" class="text-center py-5"><div class="spinner-border text-primary"></div><div class="mt-2">Đang xử lý dữ liệu lớn...</div></div>
 
         <div id="mainContent" style="display:none">
+            
             <div class="row g-3 mb-4">
-                <div class="col-md-3"><div class="kpi-box bg-g1"><h4>TỔNG NHÂN SỰ</h4><h1 class="display-4 fw-bold" id="kpiTotal">0</h1></div></div>
-                <div class="col-md-3"><div class="kpi-box bg-g2"><h4>KHÁM ĐỊNH KỲ</h4><h1 class="display-4 fw-bold" id="kpiDK">0</h1><small>(NV Bình thường)</small></div></div>
-                <div class="col-md-3"><div class="kpi-box bg-g3"><h4>KHÁM BNN</h4><h1 class="display-4 fw-bold" id="kpiBNN">0</h1><small>(NV Độc hại)</small></div></div>
-                <div class="col-md-3"><div class="kpi-box bg-g4"><h4>CHƯA ĐI KHÁM</h4><h1 class="display-4 fw-bold" id="kpiMissing">0</h1><small>(Cần nhắc nhở)</small></div></div>
+                <div class="col-md-3"><div class="kpi-box bg-g1"><h4>NHÂN SỰ</h4><h1 class="display-4 fw-bold" id="kpiTotal">0</h1><small>Trong phạm vi lọc</small></div></div>
+                <div class="col-md-3"><div class="kpi-box bg-g2"><h4>ĐỊNH KỲ</h4><h1 class="display-4 fw-bold" id="kpiDK">0</h1><small>NV Bình thường</small></div></div>
+                <div class="col-md-3"><div class="kpi-box bg-g3"><h4>KHÁM BNN</h4><h1 class="display-4 fw-bold" id="kpiBNN">0</h1><small>NV Độc hại</small></div></div>
+                <div class="col-md-3"><div class="kpi-box bg-g4"><h4>CHƯA KHÁM</h4><h1 class="display-4 fw-bold" id="kpiMissing">0</h1><small>Cần nhắc nhở</small></div></div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm border-danger">
+                        <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between">
+                            <span><i class="bi bi-heart-pulse-fill"></i> PHÂN TÍCH BỆNH LÝ & SỨC KHỎE (TẠI ĐƠN VỊ ĐANG CHỌN)</span>
+                            <span class="badge bg-white text-danger" id="totalBenhLy">0 ca bệnh</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="row g-0">
+                                <div class="col-md-4 p-3 border-end">
+                                    <h6 class="text-center fw-bold text-muted">TOP 5 BỆNH PHỔ BIẾN</h6>
+                                    <canvas id="chartBenh" height="250"></canvas>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="table-responsive" style="max-height: 300px;">
+                                        <table class="table table-hover table-striped mb-0 align-middle">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th>Tên Bệnh Lý / Vấn Đề Sức Khỏe</th>
+                                                    <th class="text-center">Số Lượng</th>
+                                                    <th class="text-center">Tỷ Lệ</th>
+                                                    <th class="text-center">Thao Tác</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tblBenhLy"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="card shadow-sm border-primary mb-4">
                 <div class="card-header bg-primary text-white fw-bold">
-                    <i class="bi bi-table"></i> BẢNG TỔNG HỢP & CHI PHÍ THEO ĐƠN VỊ
+                    <i class="bi bi-currency-exchange"></i> TỔNG HỢP CHI PHÍ KHÁM
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive" style="max-height: 500px;">
@@ -68,21 +123,19 @@
                                     <th>Đơn Vị / Bộ Phận</th>
                                     <th class="text-center">Tổng NV</th>
                                     <th class="text-center">Định Kỳ</th>
-                                    <th class="text-center text-danger">Độc Hại (BNN)</th>
-                                    <th class="text-center text-muted">Chưa Khám</th>
-                                    <th class="text-end fw-bold text-success">Ước Tính Chi Phí</th>
-                                    <th class="text-center">Thao tác</th>
+                                    <th class="text-center text-danger">BNN</th>
+                                    <th class="text-end fw-bold text-success">Thành Tiền <span class="currency-unit">(VNĐ)</span></th>
+                                    <th class="text-center">Chi Tiết</th>
                                 </tr>
                             </thead>
                             <tbody id="tblMain"></tbody>
                             <tfoot class="table-light fw-bold">
                                 <tr>
-                                    <td>TỔNG CỘNG</td>
+                                    <td>TỔNG CỘNG TOÀN CÔNG TY</td>
                                     <td class="text-center" id="tfTotal">0</td>
                                     <td class="text-center" id="tfDK">0</td>
                                     <td class="text-center" id="tfBNN">0</td>
-                                    <td class="text-center" id="tfMissing">0</td>
-                                    <td class="text-end text-success" id="tfCost">0 đ</td>
+                                    <td class="text-end text-success fs-5" id="tfCost">0</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -93,17 +146,20 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalDetail" tabindex="-1">
+    <div class="modal fade" id="modalBenh" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title fw-bold" id="modalTitle">Chi Tiết Đơn Vị</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold" id="modalBenhTitle">Danh Sách Nhân Viên</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <table class="table table-sm table-striped">
-                        <thead><tr><th>Mã NV</th><th>Họ Tên</th><th>Loại Khám</th><th>Trạng Thái</th></tr></thead>
-                        <tbody id="tblDetailBody"></tbody>
+                    <div class="d-flex justify-content-end mb-2">
+                        <button class="btn btn-success btn-sm" onclick="downloadBenhList()"><i class="bi bi-file-earmark-excel"></i> Tải Danh Sách Này</button>
+                    </div>
+                    <table class="table table-sm table-striped border">
+                        <thead><tr><th>Mã NV</th><th>Họ Tên</th><th>Bộ Phận</th><th>Ghi Chú Bệnh</th></tr></thead>
+                        <tbody id="tblBenhDetail"></tbody>
                     </table>
                 </div>
             </div>
@@ -117,16 +173,25 @@
         
         let rawData = [];
         let mapDonVi = {};
-        let filteredData = []; // Dữ liệu sau khi lọc
+        let filteredData = [];
+        let chartBenh = null;
+        let currentDiseaseList = []; // Để tải excel
+        let currentDiseaseName = "";
+
+        // Biến lưu giá (Lấy từ localStorage của trang Campaign)
+        let costConfig = { dk: 0, bnn: 0, rate: 25400, currency: 'VND' };
 
         async function init() {
+            // Load Đợt
             const { data } = await supabaseClient.from('dot_kham').select('*').order('id', {ascending: false});
             const sel = document.getElementById('selDotKham');
             data?.forEach(d => { let opt = document.createElement('option'); opt.value = d.id; opt.text = d.ten_dot; sel.add(opt); });
             
+            // Load Từ điển
             const { data: dv } = await supabaseClient.from('danh_muc_don_vi').select('*');
             dv?.forEach(i => mapDonVi[i.ma_don_vi] = i.ten_don_vi);
 
+            // Load Dữ liệu ban đầu
             loadData();
         }
         init();
@@ -135,6 +200,28 @@
             const dotId = document.getElementById('selDotKham').value;
             if(!dotId) return;
 
+            // 1. TỰ ĐỘNG LẤY CHI PHÍ TỪ TRANG QUẢN LÝ (CAMPAIGN)
+            const savedCost = localStorage.getItem(`cost_${dotId}`);
+            if(savedCost) {
+                const parsed = JSON.parse(savedCost);
+                if(parsed.prices) {
+                    costConfig.dk = parseInt(parsed.prices.dk) || 0;
+                    costConfig.bnn = parseInt(parsed.prices.bnn) || 0;
+                }
+                if(parsed.currency === 'USD') {
+                    costConfig.currency = 'USD';
+                    costConfig.rate = parseInt(parsed.rate) || 25400;
+                    document.getElementById('chkUSD').checked = true;
+                } else {
+                    document.getElementById('chkUSD').checked = false;
+                }
+            } else {
+                // Mặc định nếu chưa lưu
+                costConfig = { dk: 150000, bnn: 300000, rate: 25400, currency: 'VND' };
+            }
+            updateCostUI();
+
+            // 2. TẢI DỮ LIỆU
             document.getElementById('loading').style.display = 'block';
             document.getElementById('mainContent').style.display = 'none';
 
@@ -142,12 +229,12 @@
             let offset = 0; const PAGE = 2000; let keep = true;
             while(keep) {
                 const { data } = await supabaseClient.from('ho_so_kham')
-                    .select('ma_nv, trang_thai_checkin, phan_loai_lao_dong, bo_phan, nhan_vien(ho_ten)')
+                    .select('ma_nv, trang_thai_checkin, phan_loai_lao_dong, bo_phan, ket_luan_benh, nhan_vien(ho_ten)')
                     .eq('dot_kham_id', dotId).range(offset, offset + PAGE - 1);
                 if(data && data.length > 0) { rawData = rawData.concat(data); offset += PAGE; if(data.length < PAGE) keep = false; } else keep = false;
             }
 
-            // Populate Filter
+            // Populate Filter Đơn Vị
             const selDonVi = document.getElementById('selDonVi');
             selDonVi.innerHTML = '<option value="ALL">-- TOÀN CÔNG TY --</option>';
             const distinctDV = [...new Set(rawData.map(i => i.bo_phan))].sort();
@@ -159,65 +246,139 @@
             filterData();
         }
 
+        function toggleCurrency() {
+            costConfig.currency = document.getElementById('chkUSD').checked ? 'USD' : 'VND';
+            updateCostUI();
+            renderTableCost(); // Vẽ lại bảng
+        }
+
+        function updateCostUI() {
+            const isUSD = costConfig.currency === 'USD';
+            const rate = isUSD ? costConfig.rate : 1;
+            
+            // Hiển thị giá đơn vị
+            document.getElementById('priceDK').value = (costConfig.dk / rate).toLocaleString('en-US', {maximumFractionDigits: 2});
+            document.getElementById('priceBNN').value = (costConfig.bnn / rate).toLocaleString('en-US', {maximumFractionDigits: 2});
+            
+            // Cập nhật nhãn đơn vị tiền
+            document.querySelectorAll('.currency-unit').forEach(el => el.innerText = isUSD ? "($ USD)" : "(VNĐ)");
+        }
+
         function filterData() {
             const selVal = document.getElementById('selDonVi').value;
             filteredData = (selVal === 'ALL') ? rawData : rawData.filter(i => i.bo_phan === selVal);
 
-            // KPI TOP
+            // --- 1. UPDATE KPI ---
             document.getElementById('kpiTotal').innerText = filteredData.length.toLocaleString();
-            
-            const dk = filteredData.filter(i => i.phan_loai_lao_dong !== 'Độc hại').length;
-            const bnn = filteredData.filter(i => i.phan_loai_lao_dong === 'Độc hại').length;
-            const missing = filteredData.filter(i => !i.trang_thai_checkin).length;
-
-            document.getElementById('kpiDK').innerText = dk.toLocaleString();
-            document.getElementById('kpiBNN').innerText = bnn.toLocaleString();
-            document.getElementById('kpiMissing').innerText = missing.toLocaleString();
+            document.getElementById('kpiDK').innerText = filteredData.filter(i => i.phan_loai_lao_dong !== 'Độc hại').length.toLocaleString();
+            document.getElementById('kpiBNN').innerText = filteredData.filter(i => i.phan_loai_lao_dong === 'Độc hại').length.toLocaleString();
+            document.getElementById('kpiMissing').innerText = filteredData.filter(i => !i.trang_thai_checkin).length.toLocaleString();
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
 
-            renderTable();
+            // --- 2. PHÂN TÍCH BỆNH LÝ ---
+            analyzeDiseases();
+
+            // --- 3. BẢNG CHI PHÍ ---
+            renderTableCost();
         }
 
-        function renderTable() {
-            const pDK = parseInt(document.getElementById('priceDK').value) || 0;
-            const pBNN = parseInt(document.getElementById('priceBNN').value) || 0;
-            const tbody = document.getElementById('tblMain'); tbody.innerHTML = '';
-            
-            // Group by Unit
-            let groups = {};
-            filteredData.forEach(i => {
-                const dvName = mapDonVi[i.bo_phan] || i.bo_phan || 'Khác';
-                if(!groups[dvName]) groups[dvName] = { name: dvName, code: i.bo_phan, total: 0, dk: 0, bnn: 0, miss: 0, list: [] };
-                
-                groups[dvName].total++;
-                groups[dvName].list.push(i);
-                
-                if(i.phan_loai_lao_dong === 'Độc hại') groups[dvName].bnn++;
-                else groups[dvName].dk++;
+        function analyzeDiseases() {
+            let diseaseMap = {};
+            let totalCases = 0;
 
-                if(!i.trang_thai_checkin) groups[dvName].miss++;
+            filteredData.forEach(p => {
+                if (p.ket_luan_benh) {
+                    // Tách bệnh theo dấu phẩy hoặc chấm phẩy
+                    const diseases = p.ket_luan_benh.split(/[;,]/);
+                    diseases.forEach(d => {
+                        let name = d.trim();
+                        // Loại bỏ các kết luận vô nghĩa
+                        if (name.length > 2 && !name.toLowerCase().includes('bình thường') && !name.toLowerCase().includes('loại')) {
+                            if (!diseaseMap[name]) diseaseMap[name] = [];
+                            diseaseMap[name].push(p);
+                            totalCases++;
+                        }
+                    });
+                }
             });
 
-            // Render Rows
-            let sumTotal=0, sumDK=0, sumBNN=0, sumMiss=0, sumCost=0;
+            document.getElementById('totalBenhLy').innerText = `${totalCases} trường hợp`;
+
+            // Sort top bệnh
+            const sortedDiseases = Object.entries(diseaseMap).sort((a, b) => b[1].length - a[1].length);
+            
+            // Render Table Disease
+            const tbody = document.getElementById('tblBenhLy');
+            tbody.innerHTML = '';
+            sortedDiseases.forEach(([name, list]) => {
+                const pct = ((list.length / filteredData.length) * 100).toFixed(1);
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${name}</td>
+                        <td class="text-center fw-bold">${list.length}</td>
+                        <td class="text-center text-muted">${pct}%</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-primary" onclick="showDiseaseDetail('${name}')">Xem DS</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Store for global access
+            window.diseaseMap = diseaseMap;
+
+            // Render Chart (Top 5)
+            const top5 = sortedDiseases.slice(0, 5);
+            if(chartBenh) chartBenh.destroy();
+            chartBenh = new Chart(document.getElementById('chartBenh'), {
+                type: 'bar',
+                data: {
+                    labels: top5.map(x => x[0]),
+                    datasets: [{
+                        label: 'Số người mắc',
+                        data: top5.map(x => x[1].length),
+                        backgroundColor: '#dc3545'
+                    }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderTableCost() {
+            const isUSD = costConfig.currency === 'USD';
+            const rate = isUSD ? costConfig.rate : 1;
+            const pDK = costConfig.dk / rate;
+            const pBNN = costConfig.bnn / rate;
+
+            const tbody = document.getElementById('tblMain'); tbody.innerHTML = '';
+            
+            // Group data by Unit
+            let groups = {};
+            // Nếu đang filter 1 đơn vị, thì chỉ hiện 1 dòng. Nếu ALL thì hiện tất cả.
+            const listToRender = (document.getElementById('selDonVi').value === 'ALL') ? rawData : filteredData;
+
+            listToRender.forEach(i => {
+                const dvName = mapDonVi[i.bo_phan] || i.bo_phan || 'Khác';
+                if(!groups[dvName]) groups[dvName] = { name: dvName, total: 0, dk: 0, bnn: 0 };
+                groups[dvName].total++;
+                if(i.phan_loai_lao_dong === 'Độc hại') groups[dvName].bnn++; else groups[dvName].dk++;
+            });
+
+            let sumTotal=0, sumDK=0, sumBNN=0, sumCost=0;
 
             Object.values(groups).forEach(g => {
                 const cost = (g.dk * pDK) + (g.bnn * pBNN);
-                
-                sumTotal += g.total; sumDK += g.dk; sumBNN += g.bnn; sumMiss += g.miss; sumCost += cost;
+                sumTotal += g.total; sumDK += g.dk; sumBNN += g.bnn; sumCost += cost;
 
                 tbody.innerHTML += `<tr>
                     <td>${g.name}</td>
                     <td class="text-center">${g.total}</td>
                     <td class="text-center">${g.dk}</td>
-                    <td class="text-center">${g.bnn}</td>
-                    <td class="text-center text-muted">${g.miss}</td>
-                    <td class="text-end fw-bold">${cost.toLocaleString()}</td>
-                    <td class="text-center">
-                        <button class="btn btn-sm btn-outline-info" onclick='viewDetail("${g.name}")'><i class="bi bi-eye"></i></button>
-                    </td>
+                    <td class="text-center text-danger">${g.bnn}</td>
+                    <td class="text-end fw-bold text-success">${cost.toLocaleString('en-US', {maximumFractionDigits: 0})}</td>
+                    <td class="text-center"><i class="bi bi-info-circle text-muted"></i></td>
                 </tr>`;
             });
 
@@ -225,25 +386,39 @@
             document.getElementById('tfTotal').innerText = sumTotal.toLocaleString();
             document.getElementById('tfDK').innerText = sumDK.toLocaleString();
             document.getElementById('tfBNN').innerText = sumBNN.toLocaleString();
-            document.getElementById('tfMissing').innerText = sumMiss.toLocaleString();
-            document.getElementById('tfCost').innerText = sumCost.toLocaleString() + ' đ';
-
-            // Store for modal access
-            window.currentGroups = groups;
+            document.getElementById('tfCost').innerText = sumCost.toLocaleString('en-US', {maximumFractionDigits: 0}) + (isUSD ? ' $' : ' đ');
         }
 
-        window.viewDetail = function(unitName) {
-            const g = window.currentGroups[unitName];
-            if(!g) return;
-            document.getElementById('modalTitle').innerText = "Chi tiết: " + unitName;
-            const tb = document.getElementById('tblDetailBody'); tb.innerHTML = '';
+        // --- EXPORT & MODAL ---
+        window.showDiseaseDetail = function(name) {
+            currentDiseaseName = name;
+            currentDiseaseList = window.diseaseMap[name];
             
-            g.list.forEach(i => {
-                const type = i.phan_loai_lao_dong === 'Độc hại' ? '<span class="badge bg-danger">BNN</span>' : '<span class="badge bg-success">Định kỳ</span>';
-                const stt = i.trang_thai_checkin ? '<span class="text-success">Đã khám</span>' : '<span class="text-secondary">Chưa khám</span>';
-                tb.innerHTML += `<tr><td>${i.ma_nv}</td><td>${i.nhan_vien?.ho_ten}</td><td>${type}</td><td>${stt}</td></tr>`;
+            document.getElementById('modalBenhTitle').innerText = `Danh Sách: ${name} (${currentDiseaseList.length} người)`;
+            const tb = document.getElementById('tblBenhDetail'); tb.innerHTML = '';
+            
+            currentDiseaseList.forEach(p => {
+                tb.innerHTML += `<tr>
+                    <td>${p.ma_nv}</td>
+                    <td>${p.nhan_vien?.ho_ten}</td>
+                    <td>${mapDonVi[p.bo_phan] || p.bo_phan}</td>
+                    <td>${p.ket_luan_benh}</td>
+                </tr>`;
             });
-            new bootstrap.Modal(document.getElementById('modalDetail')).show();
+            new bootstrap.Modal(document.getElementById('modalBenh')).show();
+        }
+
+        window.downloadBenhList = function() {
+            const data = currentDiseaseList.map(p => ({
+                "Mã NV": p.ma_nv,
+                "Họ Tên": p.nhan_vien?.ho_ten,
+                "Bộ Phận": mapDonVi[p.bo_phan] || p.bo_phan,
+                "Bệnh Lý": currentDiseaseName,
+                "Ghi chú BS": p.ket_luan_benh
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "DanhSachBenh");
+            XLSX.writeFile(wb, `DS_Benh_${currentDiseaseName}.xlsx`);
         }
     </script>
 </body>
