@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nhập Kết Quả (Smart Check) - HSE CiBao</title>
+    <title>Nhập Kết Quả Full - HSE CiBao</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
@@ -25,49 +25,54 @@
 
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-            <h3 class="text-primary fw-bold"><i class="bi bi-file-earmark-excel-fill"></i> NHẬP KẾT QUẢ & ĐỐI CHIẾU</h3>
-            <a href="index.html" class="btn btn-outline-secondary fw-bold"><i class="bi bi-house-door-fill"></i> VỀ TRANG CHỦ</a>
+            <h3 class="text-primary fw-bold"><i class="bi bi-file-earmark-spreadsheet-fill"></i> NHẬP KẾT QUẢ (FULL 30 CỘT)</h3>
+            <div class="d-flex gap-2">
+                <button class="btn btn-warning fw-bold" onclick="kiemTraDoiChieu()"><i class="bi bi-search"></i> MỞ BẢNG ĐỐI CHIẾU</button>
+                <a href="index.html" class="btn btn-secondary fw-bold"><i class="bi bi-house-door-fill"></i> Trang Chủ</a>
+            </div>
         </div>
 
         <div class="card shadow-sm mb-4 border-primary">
             <div class="card-body">
                 <label class="fw-bold mb-2">Chọn Đợt Khám:</label>
-                <div class="d-flex gap-2">
-                    <select id="selDotKham" class="form-select form-select-lg fw-bold text-primary border-primary"></select>
-                    <button class="btn btn-info text-white fw-bold" onclick="kiemTraDoiChieu()">
-                        <i class="bi bi-search"></i> Kiểm Tra Lại
-                    </button>
-                </div>
+                <select id="selDotKham" class="form-select form-select-lg fw-bold text-primary border-primary"></select>
             </div>
         </div>
 
         <ul class="nav nav-tabs nav-fill mb-3" id="myTab" role="tablist">
-            <li class="nav-item"><button class="nav-link active fw-bold" id="dk-tab" data-bs-toggle="tab" data-bs-target="#dk-pane" type="button">1. KẾT QUẢ ĐỊNH KỲ</button></li>
-            <li class="nav-item"><button class="nav-link fw-bold text-danger" id="bnn-tab" data-bs-toggle="tab" data-bs-target="#bnn-pane" type="button">2. KẾT QUẢ BNN</button></li>
+            <li class="nav-item">
+                <button class="nav-link active fw-bold" id="dk-tab" data-bs-toggle="tab" data-bs-target="#dk-pane" type="button">1. KẾT QUẢ ĐỊNH KỲ (31 CỘT)</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link fw-bold text-danger" id="bnn-tab" data-bs-toggle="tab" data-bs-target="#bnn-pane" type="button">2. KẾT QUẢ BNN (25 CỘT)</button>
+            </li>
         </ul>
 
         <div class="tab-content bg-white p-4 border rounded shadow-sm">
             <div class="tab-pane fade show active" id="dk-pane">
                 <div class="row g-4">
                     <div class="col-md-5 border-end">
-                        <button class="btn btn-outline-success w-100 py-2 fw-bold mb-2" onclick="taiMauTrong('DK')"><i class="bi bi-download"></i> TẢI MẪU TRỐNG (ĐỊNH KỲ)</button>
-                        <small class="text-muted">Dùng mẫu này để copy dữ liệu từ bệnh viện vào.</small>
+                        <h5 class="text-success fw-bold"><i class="bi bi-download"></i> A. Tải File Mẫu (Có sẵn tên NV)</h5>
+                        <button class="btn btn-outline-success w-100 py-2 fw-bold" onclick="taiMauTrong('DK')">TẢI MẪU ĐỊNH KỲ</button>
                     </div>
                     <div class="col-md-7">
+                        <h5 class="text-primary fw-bold"><i class="bi bi-upload"></i> B. Upload Kết Quả</h5>
                         <input type="file" id="fileDK" class="form-control mb-3" accept=".xlsx, .xls">
-                        <button class="btn btn-success w-100 py-2 fw-bold" onclick="uploadData('DK')"><i class="bi bi-cloud-upload"></i> NẠP DỮ LIỆU ĐỊNH KỲ</button>
+                        <button class="btn btn-success w-100 py-2 fw-bold" onclick="uploadData('DK')">NẠP DỮ LIỆU ĐỊNH KỲ</button>
                     </div>
                 </div>
             </div>
+
             <div class="tab-pane fade" id="bnn-pane">
                 <div class="row g-4">
                     <div class="col-md-5 border-end">
-                        <button class="btn btn-outline-danger w-100 py-2 fw-bold mb-2" onclick="taiMauTrong('BNN')"><i class="bi bi-download"></i> TẢI MẪU TRỐNG (BNN)</button>
-                         <small class="text-muted">Dùng mẫu này để nhập kết quả đo Thính lực/Hô hấp.</small>
+                        <h5 class="text-danger fw-bold"><i class="bi bi-download"></i> A. Tải File Mẫu (Có sẵn tên NV)</h5>
+                        <button class="btn btn-outline-danger w-100 py-2 fw-bold" onclick="taiMauTrong('BNN')">TẢI MẪU BNN</button>
                     </div>
                     <div class="col-md-7">
+                        <h5 class="text-danger fw-bold"><i class="bi bi-upload"></i> B. Upload Kết Quả</h5>
                         <input type="file" id="fileBNN" class="form-control mb-3" accept=".xlsx, .xls">
-                        <button class="btn btn-danger w-100 py-2 fw-bold" onclick="uploadData('BNN')"><i class="bi bi-cloud-upload"></i> NẠP DỮ LIỆU BNN</button>
+                        <button class="btn btn-danger w-100 py-2 fw-bold" onclick="uploadData('BNN')">NẠP DỮ LIỆU BNN</button>
                     </div>
                 </div>
             </div>
@@ -78,36 +83,45 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-clipboard-check"></i> BÁO CÁO ĐỐI CHIẾU SAU NHẬP LIỆU</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-incognito"></i> TRUY XÉT DỮ LIỆU & ĐỐI CHIẾU</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="row">
+                <div class="modal-body bg-light">
+                    <div class="row g-3">
                         <div class="col-md-6">
-                            <div class="card border-danger mb-3">
-                                <div class="card-header bg-danger text-white fw-bold">1. NGHI VẤN (Có KQ mà CHƯA Check-in)</div>
+                            <div class="card border-danger h-100">
+                                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> CHƯA ĐI KHÁM MÀ CÓ KẾT QUẢ</span>
+                                    <span class="badge bg-white text-danger fs-6" id="cntGhost">0</span>
+                                </div>
                                 <div class="card-body">
-                                    <p class="small">Những người này có file kết quả nhưng hệ thống ghi nhận chưa đi khám. Cần kiểm tra xem có đi khám chui không?</p>
-                                    <div class="table-responsive" style="max-height: 300px;">
-                                        <table class="table table-sm table-striped">
-                                            <thead><tr><th>Mã NV</th><th>Họ Tên</th></tr></thead>
+                                    <p class="small text-muted">Những người này hệ thống ghi nhận <b>Chưa Check-in</b> tại trạm, nhưng file bệnh viện trả về lại <b>Có kết quả</b>.</p>
+                                    <div class="table-responsive border" style="height: 300px;">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light sticky-top"><tr><th>Mã NV</th><th>Họ Tên</th></tr></thead>
                                             <tbody id="tblGhost"></tbody>
                                         </table>
                                     </div>
+                                    <button class="btn btn-sm btn-outline-danger w-100 mt-2" onclick="xuatExcelDoiChieu('GHOST')"><i class="bi bi-download"></i> Tải Danh Sách Truy Xét</button>
                                 </div>
                             </div>
                         </div>
+
                         <div class="col-md-6">
-                            <div class="card border-warning mb-3">
-                                <div class="card-header bg-warning text-dark fw-bold">2. THIẾU KẾT QUẢ (Đã Check-in mà chưa có KQ)</div>
+                            <div class="card border-warning h-100">
+                                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold"><i class="bi bi-question-circle-fill"></i> ĐÃ ĐI KHÁM MÀ THIẾU KẾT QUẢ</span>
+                                    <span class="badge bg-white text-dark fs-6" id="cntMissing">0</span>
+                                </div>
                                 <div class="card-body">
-                                    <p class="small">Những người này đã đi khám (có check-in) nhưng chưa thấy kết quả trong file vừa nạp.</p>
-                                    <div class="table-responsive" style="max-height: 300px;">
-                                        <table class="table table-sm table-striped">
-                                            <thead><tr><th>Mã NV</th><th>Họ Tên</th></tr></thead>
-                                            <tbody id="tblMissingResult"></tbody>
+                                    <p class="small text-muted">Những người này <b>Đã Check-in</b>, nhưng trong file Excel vừa nạp <b>Không tìm thấy</b> kết quả.</p>
+                                    <div class="table-responsive border" style="height: 300px;">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light sticky-top"><tr><th>Mã NV</th><th>Họ Tên</th></tr></thead>
+                                            <tbody id="tblMissing"></tbody>
                                         </table>
                                     </div>
+                                    <button class="btn btn-sm btn-outline-dark w-100 mt-2" onclick="xuatExcelDoiChieu('MISSING')"><i class="bi bi-download"></i> Tải Danh Sách Tìm Kiếm</button>
                                 </div>
                             </div>
                         </div>
@@ -121,7 +135,9 @@
         const projectUrl = 'https://eoebiveebosvlyndbdak.supabase.co';
         const projectKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvZWJpdmVlYm9zdmx5bmRiZGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NjI4NjEsImV4cCI6MjA4MzMzODg2MX0.dF5-AmjWlxtJSD2QWHFpiWpHE8l6cHuG_pLxkXD-TUc';
         const supabaseClient = window.supabase.createClient(projectUrl, projectKey);
+        let listGhost = [], listMissing = [];
 
+        // Init
         async function init() {
             const { data } = await supabaseClient.from('dot_kham').select('*').order('id', {ascending: false});
             const sel = document.getElementById('selDotKham');
@@ -129,6 +145,7 @@
         }
         init();
 
+        // 1. TẢI MẪU TRỐNG (Chỉ tiêu đề)
         function taiMauTrong(type) {
             let exportData = [];
             if(type === 'DK') {
@@ -141,36 +158,30 @@
             XLSX.writeFile(wb, `Mau_Nhap_${type}_Trong.xlsx`);
         }
 
+        // 2. UPLOAD DATA
         async function uploadData(type) {
             const dotId = document.getElementById('selDotKham').value;
-            const fileInput = document.getElementById(type === 'DK' ? 'fileDK' : 'fileBNN');
-            const file = fileInput.files[0];
-            if(!dotId || !file) return Swal.fire('Thiếu thông tin', 'Chọn đợt và file Excel.', 'warning');
+            const file = document.getElementById(type === 'DK' ? 'fileDK' : 'fileBNN').files[0];
+            if(!dotId || !file) return Swal.fire('Lỗi', 'Thiếu thông tin!', 'warning');
 
             const reader = new FileReader();
             reader.onload = async function(e) {
-                const workbook = XLSX.read(e.target.result, {type: 'array'});
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet);
-
+                const wb = XLSX.read(e.target.result, {type: 'array'});
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
                 if(rows.length === 0) return Swal.fire('Lỗi', 'File trống', 'error');
-                
+
                 document.getElementById('loadingOverlay').style.display = 'block';
                 document.getElementById('lblStatus').innerText = `Đang xử lý ${rows.length} dòng...`;
 
                 let updateData = [];
-                let uploadedMaNVs = []; // Lưu danh sách mã NV vừa nạp để đối chiếu
-
                 rows.forEach(r => {
                     const maNV = r['SỐ THẺ'] || r['Mã NV'] || r['MA_NV'] || r['Số thẻ'];
                     if(!maNV) return; 
                     const maStr = maNV.toString().trim();
-                    uploadedMaNVs.push(maStr);
 
                     let item = { ma_nv: maStr, dot_kham_id: dotId };
-
                     if(type === 'DK') {
-                        item.chieu_cao = r['Chiều cao']; item.can_nang = r['Cân nặng']; item.bmi = r['BMI'];
+                         item.chieu_cao = r['Chiều cao']; item.can_nang = r['Cân nặng']; item.bmi = r['BMI'];
                         item.mach = r['Mạch (L/P)']; item.huyet_ap = r['Huyết áp (mmHG)'];
                         item.noi_khoa = r['Nội khoa']; item.ngoai_khoa = r['Ngoại khoa']; item.da_lieu = r['Da liễu'];
                         item.san_phu_khoa = r['Lâm sàng Sản/phụ khoa']; item.pap_smear = r['XN Pap smear'];
@@ -188,28 +199,24 @@
                     updateData.push(item);
                 });
 
-                // Batch Upsert
                 const BATCH = 500;
                 for(let i=0; i<updateData.length; i+=BATCH) {
-                    const batch = updateData.slice(i, i+BATCH);
-                    await supabaseClient.from('ho_so_kham').upsert(batch, { onConflict: 'ma_nv, dot_kham_id' });
+                    await supabaseClient.from('ho_so_kham').upsert(updateData.slice(i, i+BATCH), { onConflict: 'ma_nv, dot_kham_id' });
                 }
 
                 document.getElementById('loadingOverlay').style.display = 'none';
+                
+                // TỰ ĐỘNG BẬT ĐỐI CHIẾU
                 Swal.fire({
-                    title: 'Đã nạp xong!',
-                    text: 'Bạn có muốn kiểm tra đối chiếu dữ liệu ngay không?',
-                    icon: 'success',
-                    showCancelButton: true,
-                    confirmButtonText: 'Kiểm tra ngay'
-                }).then((r) => {
-                    if(r.isConfirmed) kiemTraDoiChieu();
-                });
+                    title: 'Nạp thành công!',
+                    text: 'Hệ thống sẽ mở bảng đối chiếu để kiểm tra sai lệch.',
+                    icon: 'success'
+                }).then(() => kiemTraDoiChieu());
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // --- 3. TÍNH NĂNG MỚI: KIỂM TRA ĐỐI CHIẾU ---
+        // 3. TÍNH NĂNG ĐỐI CHIẾU (POPUP)
         async function kiemTraDoiChieu() {
             const dotId = document.getElementById('selDotKham').value;
             if(!dotId) return;
@@ -217,9 +224,8 @@
             document.getElementById('loadingOverlay').style.display = 'block';
             document.getElementById('lblStatus').innerText = "Đang đối chiếu dữ liệu...";
 
-            // Lấy toàn bộ dữ liệu (Chỉ cần mã NV, tên, checkin, kết quả)
-            let allData = [];
-            let offset = 0; const PAGE = 2000; let keep = true;
+            // Loop fetch all
+            let allData = []; let offset = 0; const PAGE = 2000; let keep = true;
             while(keep) {
                 const { data } = await supabaseClient.from('ho_so_kham')
                     .select('ma_nv, trang_thai_checkin, xep_loai, ket_qua_thinh_luc, ket_qua_ho_hap, nhan_vien(ho_ten)')
@@ -227,38 +233,37 @@
                 if(data && data.length > 0) { allData = allData.concat(data); offset += PAGE; if(data.length < PAGE) keep = false; } else keep = false;
             }
 
-            // Phân loại
-            let ghosts = []; // Có KQ mà chưa Checkin
-            let missingResult = []; // Checkin rồi mà chưa có KQ (Xét theo tab hiện tại)
-            
-            // Xác định đang ở Tab nào để check cột tương ứng
+            // Check
+            listGhost = []; listMissing = [];
             const isDK = document.getElementById('dk-tab').classList.contains('active');
 
             allData.forEach(item => {
+                // Định nghĩa "Có kết quả" dựa trên tab đang mở
                 const hasResult = isDK ? (item.xep_loai) : (item.ket_qua_thinh_luc || item.ket_qua_ho_hap);
-                const isCheckedIn = item.trang_thai_checkin;
-
-                if (hasResult && !isCheckedIn) {
-                    ghosts.push(item);
-                } else if (isCheckedIn && !hasResult) {
-                    missingResult.push(item);
-                }
+                
+                if (hasResult && !item.trang_thai_checkin) listGhost.push(item); // Có KQ mà chưa checkin
+                else if (item.trang_thai_checkin && !hasResult) listMissing.push(item); // Có checkin mà chưa KQ
             });
 
-            // Render ra bảng
-            const tblGhost = document.getElementById('tblGhost');
-            const tblMiss = document.getElementById('tblMissingResult');
-            tblGhost.innerHTML = ''; tblMiss.innerHTML = '';
+            // Render
+            document.getElementById('cntGhost').innerText = listGhost.length;
+            document.getElementById('cntMissing').innerText = listMissing.length;
 
-            ghosts.forEach(i => {
-                tblGhost.innerHTML += `<tr><td>${i.ma_nv}</td><td>${i.nhan_vien?.ho_ten}</td></tr>`;
-            });
-            missingResult.forEach(i => {
-                tblMiss.innerHTML += `<tr><td>${i.ma_nv}</td><td>${i.nhan_vien?.ho_ten}</td></tr>`;
-            });
+            const rGhost = document.getElementById('tblGhost'); rGhost.innerHTML = '';
+            listGhost.forEach(i => rGhost.innerHTML += `<tr><td>${i.ma_nv}</td><td>${i.nhan_vien?.ho_ten}</td></tr>`);
+
+            const rMiss = document.getElementById('tblMissing'); rMiss.innerHTML = '';
+            listMissing.forEach(i => rMiss.innerHTML += `<tr><td>${i.ma_nv}</td><td>${i.nhan_vien?.ho_ten}</td></tr>`);
 
             document.getElementById('loadingOverlay').style.display = 'none';
             new bootstrap.Modal(document.getElementById('modalDoiChieu')).show();
+        }
+
+        function xuatExcelDoiChieu(type) {
+            const data = (type === 'GHOST' ? listGhost : listMissing).map(i => ({ "Mã NV": i.ma_nv, "Họ Tên": i.nhan_vien?.ho_ten, "Lý do": type === 'GHOST' ? "Có KQ nhưng chưa Checkin" : "Đã Checkin nhưng thiếu KQ" }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "DoiChieu");
+            XLSX.writeFile(wb, `DS_${type}_TruyXet.xlsx`);
         }
     </script>
 </body>
